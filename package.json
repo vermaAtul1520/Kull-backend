@@ -1,0 +1,11 @@
+{
+  "name": "kull-backend",
+  "version": "1.0.0",
+  "description": "This repo is used to handle the kull api services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Atul verma",
+  "license": "ISC"
+}
