@@ -19,7 +19,7 @@ const connectDB = require("./config/database");
 // const superAdminRoutes = require("./routes/superAdminRoutes");
 
 // // Import middleware
-const errorHandler = require("./middleware/errorHandler");
+const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { auth } = require("./middleware/auth");
 
 const app = express();
@@ -101,7 +101,8 @@ app.use("*", (req, res) => {
 });
 
 // Error handling middleware
-// app.use(errorHandler);
+app.use('*', notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
