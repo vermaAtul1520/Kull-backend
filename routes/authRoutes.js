@@ -3,7 +3,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const { auth, authRateLimit, passwordResetLimit } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+// const upload = require('../middleware/upload');
 
 // Validation rules
 const registerValidation = [
@@ -135,15 +135,15 @@ router.post('/logout', auth, authController.logout);
 router.post('/join-community', authRateLimit, joinCommunityValidation, authController.joinCommunity);
 
 // POST /api/auth/request-community - Request new community registration
-router.post('/request-community', 
-  authRateLimit,
-  upload.fields([
-    { name: 'documents', maxCount: 5 },
-    { name: 'logo', maxCount: 1 }
-  ]),
-  communityRequestValidation,
-  authController.requestCommunity
-);
+// router.post('/request-community', 
+//   authRateLimit,
+//   upload.fields([
+//     { name: 'documents', maxCount: 5 },
+//     { name: 'logo', maxCount: 1 }
+//   ]),
+//   communityRequestValidation,
+//   authController.requestCommunity
+// );
 
 // POST /api/auth/forgot-password - Request password reset
 router.post('/forgot-password', passwordResetLimit, forgotPasswordValidation, authController.forgotPassword);
