@@ -11,12 +11,12 @@ require("dotenv").config();
 const connectDB = require("./config/database");
 
 // Import routes
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const communityRoutes = require("./routes/communityRoutes");
-const contentRoutes = require("./routes/contentRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const superAdminRoutes = require("./routes/superAdminRoutes");
+// const authRoutes = require("./routes/authRoutes");
+// const userRoutes = require("./routes/userRoutes");
+// const communityRoutes = require("./routes/communityRoutes");
+// const contentRoutes = require("./routes/contentRoutes");
+// const adminRoutes = require("./routes/adminRoutes");
+// const superAdminRoutes = require("./routes/superAdminRoutes");
 
 // // Import middleware
 const errorHandler = require("./middleware/errorHandler");
@@ -57,12 +57,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 connectDB();
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/communities", communityRoutes);
-app.use("/api/content", contentRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/superadmin", superAdminRoutes);
+// app.use("/api/auth", authRoutes);
+// app.use("/api/users", userRoutes);
+// app.use("/api/communities", communityRoutes);
+// app.use("/api/content", contentRoutes);
+// app.use("/api/admin", adminRoutes);
+// app.use("/api/superadmin", superAdminRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -101,7 +101,7 @@ app.use("*", (req, res) => {
 });
 
 // Error handling middleware
-app.use(errorHandler);
+// app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
