@@ -1,3 +1,4 @@
+// index.js
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -7,64 +8,56 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 require("dotenv").config();
 
-// Import database connection
-const connectDB = require("./config/database");
+// Middleware
+const { errorHandler, notFound } = require("./middleware/errorHandler");
 
-// Import routes
-// const authRoutes = require("./routes/authRoutes");
+// Routes
+const authRoutes = require("./routes/authRoutes");
 // const userRoutes = require("./routes/userRoutes");
 // const communityRoutes = require("./routes/communityRoutes");
 // const contentRoutes = require("./routes/contentRoutes");
 // const adminRoutes = require("./routes/adminRoutes");
 // const superAdminRoutes = require("./routes/superAdminRoutes");
 
-// // Import middleware
-const { errorHandler, notFound } = require('./middleware/errorHandler');
-const { auth } = require("./middleware/auth");
+// MongoDB connection
+const connectDB = require("./config/database");
+connectDB(); // Connect to MongoDB Atlas
 
 const app = express();
 
-// Trust proxy for rate limiting
-app.set("trust proxy", 1);
-
-// Rate limiting
+// Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 100,
   message: "Too many requests from this IP, please try again later.",
 });
 
-// Security middleware
+app.set("trust proxy", 1); // For rate limiter behind proxy
+
+// Middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true,
+}));
+app.use(morgan("dev")); // Cleaner for dev, use "combined" in prod
 app.use(compression());
 app.use(limiter);
-app.use(morgan("combined"));
-
-// Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Connect to database
-connectDB();
-
-// Routes
-// app.use("/api/auth", authRoutes);
+// Mount Routes
+app.use("/api/auth", authRoutes);
 // app.use("/api/users", userRoutes);
 // app.use("/api/communities", communityRoutes);
 // app.use("/api/content", contentRoutes);
 // app.use("/api/admin", adminRoutes);
 // app.use("/api/superadmin", superAdminRoutes);
 
-// Health check endpoint
+// Health Check
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     message: "KULL Backend is running!",
@@ -74,7 +67,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API info endpoint
+// API Info
 app.get("/api", (req, res) => {
   res.json({
     name: "KULL API",
@@ -91,7 +84,7 @@ app.get("/api", (req, res) => {
   });
 });
 
-// 404 handler
+// Not Found Handler
 app.use("*", (req, res) => {
   res.status(404).json({
     success: false,
@@ -100,14 +93,13 @@ app.use("*", (req, res) => {
   });
 });
 
-// Error handling middleware
-app.use('*', notFound);
+// Global Error Handler
+app.use(notFound);
 app.use(errorHandler);
 
+// Server Start
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
-  console.log(`🚀 KULL Backend server running on port ${PORT}`);
-  console.log(`📱 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🌐 API Base URL: http://localhost:${PORT}/api`);
+  console.log(`KULL Backend running at http://localhost:${PORT}/api`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
