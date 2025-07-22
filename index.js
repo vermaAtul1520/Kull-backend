@@ -14,7 +14,7 @@ const { errorHandler, notFound } = require("./middleware/errorHandler");
 // Routes
 const authRoutes = require("./routes/authRoutes");
 // const userRoutes = require("./routes/userRoutes");
-// const communityRoutes = require("./routes/communityRoutes");
+const communityRoutes = require("./routes/communityRoutes");
 // const contentRoutes = require("./routes/contentRoutes");
 // const adminRoutes = require("./routes/adminRoutes");
 // const superAdminRoutes = require("./routes/superAdminRoutes");
@@ -52,7 +52,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Mount Routes
 app.use("/api/auth", authRoutes);
 // app.use("/api/users", userRoutes);
-// app.use("/api/communities", communityRoutes);
+app.use("/api/communities", communityRoutes);
 // app.use("/api/content", contentRoutes);
 // app.use("/api/admin", adminRoutes);
 // app.use("/api/superadmin", superAdminRoutes);
@@ -95,7 +95,7 @@ app.use("*", (req, res) => {
 
 // Global Error Handler
 app.use(notFound);
-app.use(errorHandler);
+// app.use(errorHandler);
 
 // Server Start
 const PORT = process.env.PORT || 5000;
