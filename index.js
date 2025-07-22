@@ -13,11 +13,9 @@ const { errorHandler, notFound } = require("./middleware/errorHandler");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
-// const userRoutes = require("./routes/userRoutes");
+const userRoutes = require("./routes/userRoutes");
 const communityRoutes = require("./routes/communityRoutes");
-// const contentRoutes = require("./routes/contentRoutes");
-// const adminRoutes = require("./routes/adminRoutes");
-// const superAdminRoutes = require("./routes/superAdminRoutes");
+
 
 // MongoDB connection
 const connectDB = require("./config/database");
@@ -51,11 +49,8 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Mount Routes
 app.use("/api/auth", authRoutes);
-// app.use("/api/users", userRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/communities", communityRoutes);
-// app.use("/api/content", contentRoutes);
-// app.use("/api/admin", adminRoutes);
-// app.use("/api/superadmin", superAdminRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
