@@ -543,6 +543,9 @@ const clearTemplateCache = () => {
     console.log('Email template cache cleared');
 };
 
+
+
+
 module.exports = {
     sendWelcomeEmail,
     sendJoinRequestEmail,
@@ -563,3 +566,6 @@ module.exports = {
     sendEmail, // For completely custom emails
     clearTemplateCache
 };
+
+
+
