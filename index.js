@@ -95,6 +95,11 @@ app.use(notFound);
 // Server Start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`KULL Backend running at http://localhost:${PORT}/api`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  const baseURL =
+    process.env.NODE_ENV === "production"
+      ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || "your-domain.com"}`
+      : `http://localhost:${PORT}`;
+
+  console.log(`✅ KULL Backend running at ${baseURL}/api`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
 });
