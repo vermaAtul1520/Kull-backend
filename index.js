@@ -90,7 +90,7 @@ app.use("*", (req, res) => {
 
 // Global Error Handler
 app.use(notFound);
-// app.use(errorHandler);
+app.use(errorHandler);
 
 // Server Start
 const PORT = process.env.PORT || 5000;
@@ -100,6 +100,6 @@ app.listen(PORT, () => {
       ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || "your-domain.com"}`
       : `http://localhost:${PORT}`;
 
-  console.log(`✅ KULL Backend running at ${baseURL}/api`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`KULL Backend running at ${baseURL}/api`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
