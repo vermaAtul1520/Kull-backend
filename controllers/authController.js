@@ -3,55 +3,96 @@ const sendEmail = require('../utils/sendEmail'); // Utility to send email
 const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken");
 const jwt = require('jsonwebtoken');
+const Community = require('../models/Community');
 
 exports.signupUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password } = req.body;
+    const { firstName, lastName, email, phone, password, referral } = req.body;
 
+    // Validate email/phone
     if (!email && !phone) {
       return res.status(400).json({
         success: false,
-        message: "Either email or phone is required"
+        message: "Either email or phone is required",
       });
     }
 
+    // Validate password
     if (!password || password.length < 3) {
       return res.status(400).json({
         success: false,
-        message: "Password is required and should be at least 6 characters long"
+        message: "Password is required and should be at least 3 characters long",
       });
     }
 
-    // Hash the password
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the user
+    // Create user (do not assign community yet)
     const newUser = await User.create({
       firstName,
       lastName,
       email,
       phone,
-      password: hashedPassword,  // hashed password
-      communityStatus: "pending",
+      password: hashedPassword,
+      communityStatus: "pending", // always pending by default
     });
 
-    // Send email to Super Admin (optional)
-    await sendEmail({
-      to: process.env.SUPER_ADMIN_EMAIL,
-      subject: "New User Signup Request - Approval Needed",
-      html: `
-        <h2>New User Requested to Join Kull</h2>
-        <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
-        <p><strong>Email:</strong> ${newUser.email || 'N/A'}</p>
-        <p><strong>Phone:</strong> ${newUser.phone || 'N/A'}</p>
-        <p><strong>User Code:</strong> ${newUser.code}</p>
-        <p><strong>Status:</strong> Pending Approval</p>
-      `
-    });
+    // -------- CASE 1: User came with referral code --------------
+    if (referral) {
+      const community = await Community.findOne({ code: referral });
 
+      if (!community) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid referral code",
+        });
+      }
+
+      // Find community admin
+      const communityAdmin = await User.findOne({
+        community: community._id,
+        roleInCommunity: "admin",
+      });
+
+      if (communityAdmin) {
+        await sendEmail({
+          to: communityAdmin.email,
+          subject: "New User Request to Join Your Community",
+          html: `
+            <h2>New Signup for Your Community</h2>
+            <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
+            <p><strong>Email:</strong> ${newUser.email || "N/A"}</p>
+            <p><strong>Phone:</strong> ${newUser.phone || "N/A"}</p>
+            <p><strong>User Code:</strong> ${newUser.code}</p>
+            <p>Status: <strong>Pending</strong></p>
+          `
+        });
+      }
+    }
+
+    // -------- CASE 2: No referral — notify SUPER ADMIN --------------
+    if (!referral) {
+      await sendEmail({
+        to: process.env.SUPER_ADMIN_EMAIL,
+        subject: "New User Signup Request - No Referral",
+        html: `
+          <h2>New User Requested to Join Kull (No Referral)</h2>
+          <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
+          <p><strong>Email:</strong> ${newUser.email || "N/A"}</p>
+          <p><strong>Phone:</strong> ${newUser.phone || "N/A"}</p>
+          <p><strong>User Code:</strong> ${newUser.code}</p>
+          <p>Status: <strong>Pending - No Referral Provided</strong></p>
+        `
+      });
+    }
+
+    // -------- Return success --------
     return res.status(201).json({
       success: true,
-      message: "Signup successful. Admin will assign your community soon.",
+      message: referral
+        ? "Signup successful. Community admin has been notified."
+        : "Signup successful. Super admin has been notified.",
       user: {
         id: newUser._id,
         code: newUser.code,
