@@ -1,34 +1,47 @@
+// middleware/isAuthenticated.js
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// Middleware to protect routes by verifying JWT token and fetching user from DB
 const isAuthenticated = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  // Extract token from Authorization header: "Bearer <token>"
+  const token = req.headers.authorization?.split(" ")[1];
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
+  if (!token) {
+    return res.status(401).json({ 
       success: false,
-      message: "No token provided",
+      message: "No token provided" 
     });
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Decode and verify token using secret key
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
 
-    // Attach user info from token to request
-    req.user = decoded;
+    // Optional but recommended: fetch fresh user data from DB
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token user not found" 
+      });
+    }
 
-    // Optional: fetch full user if needed
-    // const user = await User.findById(decoded.id);
-    // if (!user) return res.status(404).json({ success: false, message: "User not found" });
-    // req.user = user;
+    // Attach user info to req for access in controller
+    req.user = {
+      id: user._id,
+      role: user.role,
+      community: user.community,
+      // You can add more fields here as needed
+    };
 
     next();
   } catch (err) {
-    return res.status(401).json({
+    return res.status(401).json({ 
       success: false,
       message: "Invalid or expired token",
+      error: err.message
     });
   }
 };
