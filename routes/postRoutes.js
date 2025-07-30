@@ -3,17 +3,14 @@ const router = express.Router();
 const postController = require("../controllers/postController");
 const isAuthenticated = require("../middleware/isAuthenticated");
 
-// Public route to get all posts (optional filter)
+// posts
 router.get("/", isAuthenticated,postController.getAllPosts);
-
-// Protected routes
 router.post("/", isAuthenticated, postController.createPost);
 router.put("/:id", isAuthenticated, postController.updatePost);
 router.delete("/:id", isAuthenticated, postController.deletePost);
 
-// Toggle like/unlike
+// likes
 router.post('/likes/:postId', isAuthenticated, postController.toggleLike)
-// Get likes for a post
 router.get('/likes/:postId', postController.getPostLikes);
 
 // Comments
