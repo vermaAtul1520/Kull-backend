@@ -1,6 +1,10 @@
 const Community = require("../models/Community");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Like = require('../models/Like');
+const Comment = require('../models/Comment');
+
+
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -168,5 +172,126 @@ exports.deletePost = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+// Toggle like/unlike
+exports.toggleLike = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.postId;
+
+    // Check if post exists
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    // Check if already liked
+    const existingLike = await Like.findOne({ post: postId, user: userId });
+
+    if (existingLike) {
+      await Like.deleteOne({ _id: existingLike._id });
+      return res.status(200).json({ message: 'Post unliked' });
+    } else {
+      await Like.create({ post: postId, user: userId });
+      return res.status(201).json({ message: 'Post liked' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+};
+
+// Get total likes & users for a post
+exports.getPostLikes = async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const likes = await Like.find({ post: postId }).populate('user', 'firstName lastName _id');
+    res.json({
+      count: likes.length,
+      users: likes.map(like => like.user)
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+};
+
+
+
+// Create a new comment or reply
+exports.createComment = async (req, res) => {
+  try {
+    const { content, parentComment } = req.body;
+    const { postId } = req.params;
+    const authorId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    const comment = await Comment.create({
+      content,
+      post: postId,
+      author: authorId,
+      parentComment: parentComment || null
+    });
+
+    res.status(201).json({ message: 'Comment created', comment });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+};
+
+// Get all comments for a post with nested replies
+exports.getComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const topLevelComments = await Comment.find({
+      post: postId,
+      parentComment: null,
+      isDeleted: false
+    })
+      .populate('author', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const repliesMap = {};
+    const allReplies = await Comment.find({
+      post: postId,
+      parentComment: { $ne: null },
+      isDeleted: false
+    })
+      .populate('author', 'firstName lastName')
+      .lean();
+
+    allReplies.forEach(reply => {
+      const parentId = reply.parentComment.toString();
+      if (!repliesMap[parentId]) repliesMap[parentId] = [];
+      repliesMap[parentId].push(reply);
+    });
+
+    const withReplies = topLevelComments.map(comment => ({
+      ...comment,
+      replies: repliesMap[comment._id.toString()] || []
+    }));
+
+    res.json({ count: withReplies.length, comments: withReplies });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+};
+
+// Soft delete comment
+exports.deleteComment = async (req, res) => {
+  try {
+    const commentId = req.params.commentId;
+    const comment = await Comment.findByIdAndUpdate(
+      commentId,
+      { isDeleted: true },
+      { new: true }
+    );
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+    res.json({ message: 'Comment deleted', comment });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 };
