@@ -32,6 +32,7 @@ const isAuthenticated = async (req, res, next) => {
     req.user = {
       id: user._id,
       role: user.role,
+      roleInCommunity:user.roleInCommunity,
       community: user.community,
       // You can add more fields here as needed
     };
