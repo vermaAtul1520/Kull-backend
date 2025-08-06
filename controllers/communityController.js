@@ -34,33 +34,39 @@ exports.createCommunity = async (req, res, next) => {
 
 
 // Create Configuration (1:1 per community)
-exports.createConfiguration = async (req, res, next) => {
+// Create or update configuration (1:1 per community)
+exports.createOrUpdateConfiguration = async (req, res, next) => {
   try {
     const { communityId } = req.params;
-    const { smaajKeTaaj } = req.body;
+    const updateData = req.body; // Accepts any field(s) dynamically
 
+    // 1. Check if community exists
     const community = await Community.findById(communityId);
     if (!community) {
       return res.status(404).json({ success: false, message: "Community not found" });
     }
 
-    // Prevent duplicate configuration
-    const existing = await CommunityConfiguration.findOne({ community: communityId });
-    if (existing) {
-      return res.status(409).json({ success: false, message: "Configuration already exists" });
+    // 2. Upsert the configuration with only provided fields (partial update)
+    const config = await CommunityConfiguration.findOneAndUpdate(
+      { community: communityId },
+      {
+        $set: { ...updateData, community: communityId }, // Partial update
+      },
+      {
+        new: true, // Return updated doc
+        upsert: true, // Create if not exists
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    // 3. Link config to community if not already linked
+    if (!community.communityConfiguration) {
+      community.communityConfiguration = config._id;
+      await community.save();
     }
 
-    // Create configuration
-    const config = await CommunityConfiguration.create({
-      community: communityId,
-      smaajKeTaaj: smaajKeTaaj || {},
-    });
+    return res.status(200).json({ success: true, data: config });
 
-    // Link configuration in Community
-    community.communityConfiguration = config._id;
-    await community.save();
-
-    return res.status(201).json({ success: true, data: config });
   } catch (err) {
     next(err);
   }
@@ -82,27 +88,6 @@ exports.getConfigurationByCommunityId = async (req, res, next) => {
   }
 };
 
-// Update Configuration
-exports.updateConfiguration = async (req, res, next) => {
-  try {
-    const { communityId } = req.params;
-    const { smaajKeTaaj } = req.body;
-
-    const updated = await CommunityConfiguration.findOneAndUpdate(
-      { community: communityId },
-      { smaajKeTaaj },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ success: false, message: "Configuration not found" });
-    }
-
-    return res.status(200).json({ success: true, message: "Configuration updated", data: updated });
-  } catch (err) {
-    next(err);
-  }
-};
 
 // Delete Configuration
 exports.deleteConfiguration = async (req, res, next) => {

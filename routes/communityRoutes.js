@@ -9,12 +9,10 @@ router.post("/create", communityController.createCommunity);
 
 // Community configuration
 // Create
-router.post("/:communityId/configuration", isAuthenticated, isSuperOrCommunityAdmin, communityController.createConfiguration);
+router.post("/:communityId/configuration", isAuthenticated, isSuperOrCommunityAdmin, communityController.createOrUpdateConfiguration);
 
 // Get Configuration by Community ID
 router.get("/:communityId/configuration", isAuthenticated, communityController.getConfigurationByCommunityId);
 
-// Update Configuration
-router.put("/:communityId/configuration", isAuthenticated, isSuperOrCommunityAdmin, communityController.updateConfiguration);
 
 module.exports = router;
