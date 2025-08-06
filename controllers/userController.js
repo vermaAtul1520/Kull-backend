@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const Community = require("../models/Community");
+const {Community} = require("../models/Community");
 
 // PUT /api/users/:userId/assign-community
 exports.assignCommunityToUser = async (req, res) => {

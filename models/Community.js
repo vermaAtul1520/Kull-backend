@@ -14,7 +14,12 @@ const communityConfigurationSchema = new mongoose.Schema({
   // Flexible JSON field for additional metadata
   smaajKeTaaj: {
     type: mongoose.Schema.Types.Mixed,
-    default: {},
+    default: [],
+  },
+  // banner
+  banner:{
+    type: mongoose.Schema.Types.Mixed,
+    default: [],
   },
 }, { timestamps: true });
 
