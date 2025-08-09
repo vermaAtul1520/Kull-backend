@@ -17,6 +17,7 @@ const userRoutes = require("./routes/userRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const postRoutes = require("./routes/postRoutes");
 const donationRoutes = require("./routes/donationRoutes");
+const newsRoutes = require("./routes/newsRoutes");
 
 
 // MongoDB connection
@@ -55,6 +56,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/communities", communityRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/donations", donationRoutes);
+app.use("/api/news", newsRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -78,6 +80,7 @@ app.get("/api", (req, res) => {
       communities: "/api/communities",
       posts: "/api/posts",
       donations: "/api/donations",
+      news: "/api/news",
       content: "/api/content",
       admin: "/api/admin",
       superadmin: "/api/superadmin",
