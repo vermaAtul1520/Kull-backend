@@ -1,13 +1,34 @@
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail'); // Utility to send email
 const bcrypt = require("bcryptjs");
-const generateToken = require("../utils/generateToken");
 const jwt = require('jsonwebtoken');
-const Community = require('../models/Community');
+const {Community} = require('../models/Community');
 
 exports.signupUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password, referral } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      password,
+      referral,
+      gender,
+      occupation,
+      religion,
+      motherTongue,
+      interests,
+      cast,
+      cGotNo,
+      fatherName,
+      address,
+      pinCode,
+      alternativePhone,
+      estimatedMembers,
+      thoughtOfMaking,
+      maritalStatus,
+      gotra,
+    } = req.body;
 
     // Validate email/phone
     if (!email && !phone) {
@@ -35,6 +56,21 @@ exports.signupUser = async (req, res, next) => {
       email,
       phone,
       password: hashedPassword,
+      gender,
+      occupation,
+      religion,
+      motherTongue,
+      interests,
+      cast,
+      cGotNo,
+      fatherName,
+      address,
+      pinCode,
+      alternativePhone,
+      estimatedMembers,
+      thoughtOfMaking,
+      maritalStatus,
+      gotra,
       communityStatus: "pending", // always pending by default
     });
 
@@ -54,6 +90,11 @@ exports.signupUser = async (req, res, next) => {
         community: community._id,
         roleInCommunity: "admin",
       });
+
+      // Assign community and set roleInCommunity to "member"
+      newUser.community = community._id;
+      newUser.roleInCommunity = "member"; // Ensure role is set
+      await newUser.save(); 
 
       if (communityAdmin) {
         await sendEmail({
@@ -121,7 +162,7 @@ exports.loginUser = async (req, res) => {
     // Find user by email or phone, explicitly selecting password
     const user = await User.findOne({
       $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
-    }).select('+password');
+    }).select('+password').populate('community', '_id name');
 
     // If no user found
     if (!user) {

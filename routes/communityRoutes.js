@@ -13,6 +13,8 @@ router.post("/:communityId/configuration", isAuthenticated, isSuperOrCommunityAd
 
 // Get Configuration by Community ID
 router.get("/:communityId/configuration", isAuthenticated, communityController.getConfigurationByCommunityId);
+router.get("/:communityId/users", isAuthenticated, communityController.getUsersByCommunityId);
+
 
 
 module.exports = router;
