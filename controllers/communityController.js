@@ -1,4 +1,5 @@
 const {Community,CommunityConfiguration} = require('../models/Community');
+const User = require('../models/User');
 
 // Create new community
 exports.createCommunity = async (req, res, next) => {
@@ -77,7 +78,8 @@ exports.getConfigurationByCommunityId = async (req, res, next) => {
   try {
     const { communityId } = req.params;
 
-    const config = await CommunityConfiguration.findOne({ community: communityId });
+    const config = await CommunityConfiguration.findOne({ community: communityId })
+    .populate('community', '_id name code description'); 
     if (!config) {
       return res.status(404).json({ success: false, message: "Configuration not found" });
     }
@@ -105,6 +107,33 @@ exports.deleteConfiguration = async (req, res, next) => {
     });
 
     return res.status(200).json({ success: true, message: "Configuration deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+exports.getUsersByCommunityId = async (req, res, next) => {
+  try {
+    const { communityId } = req.params;
+
+    // Validate input
+    if (!communityId) {
+      return res.status(400).json({
+        success: false,
+        message: "Community ID is required"
+      });
+    }
+
+    // Find users that belong to the given community
+    const users = await User.find({ community: communityId })
+      .select('-password  -community'); 
+
+    return res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users
+    });
   } catch (err) {
     next(err);
   }

@@ -33,6 +33,7 @@ exports.assignCommunityToUser = async (req, res) => {
     // Assign community
     userToUpdate.community = communityId;
     userToUpdate.communityStatus = "approved";
+    userToUpdate.status=true
     await userToUpdate.save();
 
     return res.status(200).json({

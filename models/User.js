@@ -75,6 +75,17 @@ const userSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  cast: { type: String },
+  cGotNo: { type: String },
+  fatherName: { type: String },
+  address: { type: String },
+  pinCode: { type: String },
+  alternativePhone: { type: String },
+  estimatedMembers: { type: Number },
+  thoughtOfMaking: { type: String },
+  maritalStatus: { type: String, enum: ["single", "married", "divorced", "widowed"] },
+  gotra: { type: String },
+
   createdAt: {
     type: Date,
     default: Date.now,
