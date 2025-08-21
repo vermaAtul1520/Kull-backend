@@ -82,6 +82,7 @@ app.get("/api", (req, res) => {
       donations: "/api/donations",
       news: "/api/news",
       content: "/api/content",
+      bhajan: "/api/communities",
       admin: "/api/admin",
       superadmin: "/api/superadmin",
     },
