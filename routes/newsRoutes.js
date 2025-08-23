@@ -1,27 +1,29 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const newsController = require('../controllers/newsController');
-const { protect } = require("../middleware/auth");
+const {
+  createNews,
+  updateNews,
+  deleteNews,
+  getCommunityNews,
+  getSingleNews
+} = require("../controllers/newsController");
 
-// GET /api/news - Get all posts
-router.get('/', protect, newsController.getAllPosts);
+const isAuthenticated = require("../middleware/isAuthenticated");
+const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
-// POST /api/news - Create new post (Admin only)
-router.post('/', protect, newsController.createPost);
+// Create news
+router.post("/", isAuthenticated, isSuperOrCommunityAdmin, createNews);
 
-// PUT /api/news/:postId - Update post
-router.put('/:postId', protect, newsController.updatePost);
+// Update news
+router.put("/:id", isAuthenticated, isSuperOrCommunityAdmin, updateNews);
 
-// DELETE /api/news/:postId - Delete post
-router.delete('/:postId', protect, newsController.deletePost);
+// Delete news
+router.delete("/:id", isAuthenticated, isSuperOrCommunityAdmin, deleteNews);
 
-// POST /api/news/:postId/like - Toggle like/unlike
-router.post('/:postId/like', protect, newsController.toggleLikePost);
+// Get all news for community
+router.get("/", isAuthenticated, getCommunityNews);
 
-// POST /api/news/:postId/comments - Add comment
-router.post('/:postId/comments', protect, newsController.addComment);
-
-// GET /api/news/:postId/comments - Get post comments
-router.get('/:postId/comments', protect, newsController.getPostComments);
+// Get single news
+router.get("/:id", isAuthenticated, getSingleNews);
 
 module.exports = router;

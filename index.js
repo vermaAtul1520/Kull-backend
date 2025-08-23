@@ -15,6 +15,8 @@ const { errorHandler, notFound } = require("./middleware/errorHandler");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const communityRoutes = require("./routes/communityRoutes");
+const postRoutes = require("./routes/postRoutes");
+const donationRoutes = require("./routes/donationRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 
 
@@ -52,7 +54,9 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/communities", communityRoutes);
-app.use('/api/news', newsRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/donations", donationRoutes);
+app.use("/api/news", newsRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -74,7 +78,11 @@ app.get("/api", (req, res) => {
       auth: "/api/auth",
       users: "/api/users",
       communities: "/api/communities",
+      posts: "/api/posts",
+      donations: "/api/donations",
+      news: "/api/news",
       content: "/api/content",
+      bhajan: "/api/communities",
       admin: "/api/admin",
       superadmin: "/api/superadmin",
     },
