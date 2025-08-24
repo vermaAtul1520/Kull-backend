@@ -37,9 +37,11 @@ app.set("trust proxy", 1); // For rate limiter behind proxy
 
 // Middleware
 app.use(helmet());
+const cors = require("cors");
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true,
+  origin: true,        // Reflects the request origin
+  credentials: true,   // Allows cookies and Authorization headers
 }));
 app.use(morgan("dev")); // Cleaner for dev, use "combined" in prod
 app.use(compression());
