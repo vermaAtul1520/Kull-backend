@@ -37,7 +37,7 @@ app.set("trust proxy", 1); // For rate limiter behind proxy
 
 // Middleware
 app.use(helmet());
-const cors = require("cors");
+
 
 app.use(cors({
   origin: true,        // Reflects the request origin
