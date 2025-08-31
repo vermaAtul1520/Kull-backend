@@ -27,6 +27,42 @@ class CommunityController extends BaseController {
       next(err);
     }
   };
+  
+  // listing 
+  listCommunities = async (req, res, next) => {
+    try {
+      return this.getAll(req, res, next); // BaseController already supports parsedQuery
+    } catch (err) {
+      next(err);
+    }
+  };
+
+   // Get one community detail
+  getCommunityById = async (req, res, next) => {
+    try {
+      return this.getOne(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // Delete one community
+  deleteCommunity = async (req, res, next) => {
+    try {
+      return this.deleteOne(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updateCommunity = (req, res, next) => {
+    try {
+      return this.updateOne(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  };
+
 
   // Create or update community configuration (upsert)
   createOrUpdateConfiguration = async (req, res, next) => {

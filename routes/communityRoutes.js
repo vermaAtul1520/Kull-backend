@@ -3,13 +3,38 @@ const router = require("express").Router();
 const communityController = require("../controllers/communityController");
 const isAuthenticated = require("../middleware/isAuthenticated");
 const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
+const isSuperAdmin = require("../middleware/isSuperAdmin");
 const { queryParser } = require("../middleware/queryParser");
 const bhajanController = require("../controllers/bhajanController");
 
 // community
 router.post("/create", communityController.createCommunity);
+router.get(
+  "/",
+  isAuthenticated,
+  isSuperAdmin, 
+  queryParser({
+    allowFilterFields: ["name","_id", "code", "createdBy", "createdAt"],
+    allowSortFields: ["name", "code", "createdAt"],
+    maxLimit: 50,
+  }),
+  communityController.listCommunities
+);
+router.get(
+  "/:id",
+  isAuthenticated,
+  isSuperAdmin,
+  communityController.getCommunityById
+);
+router.put("/:id", isAuthenticated, isSuperAdmin, communityController.updateCommunity);
+router.delete(
+  "/:id",
+  isAuthenticated,
+  isSuperAdmin,
+  communityController.deleteCommunity
+);
 router.get("/:communityId/users", isAuthenticated, queryParser({
-  allowFilterFields: ["firstName", "email", "role", "status"],
+  allowFilterFields: ["firstName", "email", "role","roleInCommunity", "status","positionInCommunity"],
   allowSortFields: ["firstName", "email", "createdAt"],
   allowProjectFields: ["firstName", "email", "role", "createdAt"],
   maxLimit: 50
