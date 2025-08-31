@@ -64,6 +64,11 @@ const userSchema = new mongoose.Schema({
     enum: ["member", "moderator", "admin"],
     default: "member",
   },
+  positionInCommunity: {
+    type: String,
+    enum: ["officer", "president"],
+    default: "member",
+  },
   gender: {
     type: String,
     enum: ["male", "female", "other"],
@@ -72,6 +77,10 @@ const userSchema = new mongoose.Schema({
   religion: { type: String },
   motherTongue: { type: String },
   interests: {
+    type: [String],
+    default: [],
+  },
+  responsibilities: {
     type: [String],
     default: [],
   },
