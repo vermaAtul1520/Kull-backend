@@ -34,7 +34,10 @@ router.delete(
   communityController.deleteCommunity
 );
 router.get("/:communityId/users", isAuthenticated, queryParser({
-  allowFilterFields: ["firstName", "email", "role","roleInCommunity", "status","positionInCommunity"],
+  allowFilterFields: [
+    "firstName", "email", "role","roleInCommunity", "status",
+    "positionInCommunity","cast","cGotNo","gotra","gender"
+  ],
   allowSortFields: ["firstName", "email", "createdAt"],
   allowProjectFields: ["firstName", "email", "role", "createdAt"],
   maxLimit: 50
