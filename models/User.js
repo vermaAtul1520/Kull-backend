@@ -94,6 +94,11 @@ const userSchema = new mongoose.Schema({
   thoughtOfMaking: { type: String },
   maritalStatus: { type: String, enum: ["single", "married", "divorced", "widowed"] },
   gotra: { type: String },
+  // Page permissions for dashboard users
+  permissions: {
+    type: [String],
+    default: [],
+  },
 
   createdAt: {
     type: Date,
