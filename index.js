@@ -22,6 +22,7 @@ const appealRoutes = require("./routes/appealRoutes");
 const dukaanRoutes = require("./routes/dukaanRoutes");
 const educationResourceRoutes = require("./routes/educationResourceRoutes");
 const jobPostRoutes = require("./routes/jobPostRoutes");
+const kartavyaRoutes = require("./routes/kartavyaRoutes");
 
 
 // MongoDB connection
@@ -67,6 +68,7 @@ app.use("/api/appeals", appealRoutes);
 app.use("/api/dukaans", dukaanRoutes);
 app.use("/api/educationResources", educationResourceRoutes);
 app.use("/api/jobPosts", jobPostRoutes);
+app.use("/api/kartavya", kartavyaRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -99,6 +101,7 @@ app.get("/api", (req, res) => {
       dukaans: "/api/dukaans",
       educationResources: "/api/educationResources",
       jobPosts: "/api/jobPosts",
+      kartavya: "/api/kartavya",
     },
   });
 });
