@@ -19,6 +19,7 @@ const postRoutes = require("./routes/postRoutes");
 const donationRoutes = require("./routes/donationRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 const appealRoutes = require("./routes/appealRoutes");
+const dukaanRoutes = require("./routes/dukaanRoutes");
 
 
 // MongoDB connection
@@ -61,6 +62,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/appeals", appealRoutes);
+app.use("/api/dukaans", dukaanRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -90,6 +92,7 @@ app.get("/api", (req, res) => {
       admin: "/api/admin",
       superadmin: "/api/superadmin",
       appeals: "/api/appeals",
+      dukaans: "/api/dukaans",
     },
   });
 });
