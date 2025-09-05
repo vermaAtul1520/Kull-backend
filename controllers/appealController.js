@@ -1,4 +1,4 @@
-const Appeal = require("../models/appeal");
+const Appeal = require("../models/Appeal");
 const BaseController = require("../utils/baseController");
 
 class AppealController extends BaseController {
