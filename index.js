@@ -23,6 +23,7 @@ const dukaanRoutes = require("./routes/dukaanRoutes");
 const educationResourceRoutes = require("./routes/educationResourceRoutes");
 const jobPostRoutes = require("./routes/jobPostRoutes");
 const kartavyaRoutes = require("./routes/kartavyaRoutes");
+const meetingRoutes = require("./routes/meetingRoutes"); // New meeting routes
 
 
 // MongoDB connection
@@ -69,6 +70,7 @@ app.use("/api/dukaans", dukaanRoutes);
 app.use("/api/educationResources", educationResourceRoutes);
 app.use("/api/jobPosts", jobPostRoutes);
 app.use("/api/kartavya", kartavyaRoutes);
+app.use("/api/meetings", meetingRoutes); // New meeting routes
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -102,6 +104,7 @@ app.get("/api", (req, res) => {
       educationResources: "/api/educationResources",
       jobPosts: "/api/jobPosts",
       kartavya: "/api/kartavya",
+      meetings: "/api/meetings", // Added meetings endpoint
     },
   });
 });
