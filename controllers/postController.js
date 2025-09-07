@@ -1,4 +1,4 @@
-const Community = require("../models/Community");
+const {Community} = require("../models/Community");
 const Post = require("../models/Post");
 const User = require("../models/User");
 const Like = require('../models/Like');

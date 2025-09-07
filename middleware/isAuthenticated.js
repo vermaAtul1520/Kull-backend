@@ -36,6 +36,12 @@ const isAuthenticated = async (req, res, next) => {
       community: user.community,
       // You can add more fields here as needed
     };
+    // Add convenience booleans
+    req.user.isSuperAdmin = user.role === "superadmin";
+    req.user.isCommunityAdmin =
+      user.roleInCommunity === "admin" &&
+      user.community &&
+      user.community._id.toString() === decoded.community?.toString();
 
     next();
   } catch (err) {

@@ -18,6 +18,11 @@ const communityRoutes = require("./routes/communityRoutes");
 const postRoutes = require("./routes/postRoutes");
 const donationRoutes = require("./routes/donationRoutes");
 const newsRoutes = require("./routes/newsRoutes");
+const appealRoutes = require("./routes/appealRoutes");
+const dukaanRoutes = require("./routes/dukaanRoutes");
+const educationResourceRoutes = require("./routes/educationResourceRoutes");
+const jobPostRoutes = require("./routes/jobPostRoutes");
+const kartavyaRoutes = require("./routes/kartavyaRoutes");
 
 
 // MongoDB connection
@@ -37,9 +42,11 @@ app.set("trust proxy", 1); // For rate limiter behind proxy
 
 // Middleware
 app.use(helmet());
+
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true,
+  origin: true,        // Reflects the request origin
+  credentials: true,   // Allows cookies and Authorization headers
 }));
 app.use(morgan("dev")); // Cleaner for dev, use "combined" in prod
 app.use(compression());
@@ -57,6 +64,11 @@ app.use("/api/communities", communityRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/news", newsRoutes);
+app.use("/api/appeals", appealRoutes);
+app.use("/api/dukaans", dukaanRoutes);
+app.use("/api/educationResources", educationResourceRoutes);
+app.use("/api/jobPosts", jobPostRoutes);
+app.use("/api/kartavya", kartavyaRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -85,6 +97,11 @@ app.get("/api", (req, res) => {
       bhajan: "/api/communities",
       admin: "/api/admin",
       superadmin: "/api/superadmin",
+      appeals: "/api/appeals",
+      dukaans: "/api/dukaans",
+      educationResources: "/api/educationResources",
+      jobPosts: "/api/jobPosts",
+      kartavya: "/api/kartavya",
     },
   });
 });

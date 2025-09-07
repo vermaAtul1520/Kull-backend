@@ -1,11 +1,12 @@
 // routes/userRoutes.js
 const express = require("express");
 const router = express.Router();
-// const { protect } = require("../middleware/isAuthenticated");
-// const { isAuthenticated } = require('../middleware/isAuthenticated');
-const { assignCommunityToUser } = require("../controllers/userController");
+const userController = require("../controllers/userController"); // class-based instance
 const isAuthenticated = require("../middleware/isAuthenticated");
+const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
-router.put("/:userId/assignCommunity", isAuthenticated, assignCommunityToUser);
+router.put("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.updateUser);
+
+router.put("/:userId/assignCommunity", isAuthenticated, userController.assignCommunityToUser);
 
 module.exports = router;

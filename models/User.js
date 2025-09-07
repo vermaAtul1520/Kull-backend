@@ -64,6 +64,11 @@ const userSchema = new mongoose.Schema({
     enum: ["member", "moderator", "admin"],
     default: "member",
   },
+  positionInCommunity: {
+    type: String,
+    enum: ["officer", "president"],
+    default: "member",
+  },
   gender: {
     type: String,
     enum: ["male", "female", "other"],
@@ -72,6 +77,10 @@ const userSchema = new mongoose.Schema({
   religion: { type: String },
   motherTongue: { type: String },
   interests: {
+    type: [String],
+    default: [],
+  },
+  responsibilities: {
     type: [String],
     default: [],
   },
@@ -85,6 +94,11 @@ const userSchema = new mongoose.Schema({
   thoughtOfMaking: { type: String },
   maritalStatus: { type: String, enum: ["single", "married", "divorced", "widowed"] },
   gotra: { type: String },
+  // Page permissions for dashboard users
+  permissions: {
+    type: [String],
+    default: [],
+  },
 
   createdAt: {
     type: Date,
