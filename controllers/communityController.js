@@ -130,7 +130,22 @@ class CommunityController extends BaseController {
       next(err);
     }
   };
-}
 
+  getOfficerForCommunity = async (req, res, next) => {
+    try {
+      const users = await User.find({
+        positionInCommunity: { $exists: true, $ne: null, $ne: "" },
+      });
+
+      res.status(200).json({
+        success: true,
+        count: users.length,
+        data: users,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+}
 // Export a single instance
 module.exports = new CommunityController();

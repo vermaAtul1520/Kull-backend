@@ -61,6 +61,7 @@ router.get("/:communityId/bhajans", isAuthenticated, queryParser({
 router.get("/bhajans/:id", isAuthenticated, bhajanController.getBhajanById);
 router.put("/bhajans/:id", isAuthenticated, bhajanController.updateBhajan);
 router.delete("/bhajans/:id", isAuthenticated, isSuperOrCommunityAdmin, bhajanController.deleteBhajan);
+router.get("/:communityId/users",isAuthenticated,communityController.getOfficerForCommunity)
 
 module.exports = router;
 
