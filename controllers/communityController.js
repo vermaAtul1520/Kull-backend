@@ -27,7 +27,7 @@ class CommunityController extends BaseController {
       next(err);
     }
   };
-  
+
   // listing 
   listCommunities = async (req, res, next) => {
     try {
@@ -149,3 +149,5 @@ class CommunityController extends BaseController {
 }
 // Export a single instance
 module.exports = new CommunityController();
+
+
