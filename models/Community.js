@@ -16,6 +16,8 @@ const communityConfigurationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: [],
   },
+  // pop up
+  addPopup: { type: String, default: null },
   // banner
   banner:{
     type: mongoose.Schema.Types.Mixed,
