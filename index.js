@@ -25,6 +25,7 @@ const jobPostRoutes = require("./routes/jobPostRoutes");
 const kartavyaRoutes = require("./routes/kartavyaRoutes");
 const meetingRoutes = require("./routes/meetingRoutes");
 const sportsEventRoutes = require("./routes/sportsEventRoutes"); // New sports event routes
+const occasionRoutes = require("./routes/occasionRoutes"); 
 
 // MongoDB connection
 const connectDB = require("./config/database");
@@ -72,6 +73,7 @@ app.use("/api/jobPosts", jobPostRoutes);
 app.use("/api/kartavya", kartavyaRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/sportsEvents", sportsEventRoutes); // New sports event routes
+app.use("/api/occasions", occasionRoutes); // New sports event routes
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -107,6 +109,7 @@ app.get("/api", (req, res) => {
       kartavya: "/api/kartavya",
       meetings: "/api/meetings",
       sportsEvents: "/api/sportsEvents", // Added sports events endpoint
+      occasions: "/api/occasions", // Added sports events endpoint
     },
   });
 });
