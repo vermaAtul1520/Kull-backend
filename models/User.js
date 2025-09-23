@@ -66,12 +66,12 @@ const userSchema = new mongoose.Schema({
   },
   positionInCommunity: {
     type: String,
-    enum: ["officer", "president"],
+    enum: ["officer", "president","member"],
     default: "member",
   },
   gender: {
     type: String,
-    enum: ["male", "female", "other"],
+    enum: ["male", "female", "other","not specified"],
   },
   occupation: { type: String },
   religion: { type: String },
