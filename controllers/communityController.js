@@ -135,7 +135,7 @@ class CommunityController extends BaseController {
     try {
       const { communityId } = req.params;
       const users = await User.find({
-        communityId:communityId,
+        community:communityId,
         positionInCommunity: { $exists: true, $ne: null, $ne: "" },
       });
 
