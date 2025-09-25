@@ -148,6 +148,30 @@ class CommunityController extends BaseController {
       next(err);
     }
   }
+
+  getGotraSubgotraByCommunityId = async (req, res, next) => {
+    try {
+      const { communityId } = req.params;
+      const config = await CommunityConfiguration.findOne({ community: communityId })
+        .select("gotra");
+
+      if (!config) {
+        return res.status(404).json({
+          success: false,
+          message: "Configuration not found"
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          gotra: config.gotra || []
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 // Export a single instance
 module.exports = new CommunityController();
