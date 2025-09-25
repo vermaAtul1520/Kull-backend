@@ -108,6 +108,11 @@ const communityConfigurationSchema = new mongoose.Schema({
       vote: { visible: true, label: "Vote", labelHindi: "मतदान" }
     }
   },
+  // gotra with embedded subgotra configuration
+  gotra: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
 }, { timestamps: true });
 
 
