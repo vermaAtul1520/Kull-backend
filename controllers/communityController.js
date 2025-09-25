@@ -135,7 +135,7 @@ class CommunityController extends BaseController {
     try {
       const { communityId } = req.params;
       const users = await User.find({
-        communityId:communityId,
+        community:communityId,
         positionInCommunity: { $exists: true, $ne: null, $ne: "" },
       });
 
@@ -143,6 +143,30 @@ class CommunityController extends BaseController {
         success: true,
         count: users.length,
         data: users,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  getGotraSubgotraByCommunityId = async (req, res, next) => {
+    try {
+      const { communityId } = req.params;
+      const config = await CommunityConfiguration.findOne({ community: communityId })
+        .select("gotra");
+
+      if (!config) {
+        return res.status(404).json({
+          success: false,
+          message: "Configuration not found"
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          gotra: config.gotra || []
+        }
       });
     } catch (err) {
       next(err);

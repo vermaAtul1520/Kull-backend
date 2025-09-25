@@ -36,7 +36,7 @@ router.delete(
 router.get("/:communityId/users", isAuthenticated, queryParser({
   allowFilterFields: [
     "firstName", "email", "role","roleInCommunity", "status",
-    "positionInCommunity","cast","cGotNo","gotra","gender","communityStatus"
+    "positionInCommunity","cast","cGotNo","gotra","subGotra","gender","communityStatus"
   ],
   allowSortFields: ["firstName", "email", "createdAt"],
   allowProjectFields: ["firstName", "email", "role", "createdAt"],
@@ -61,7 +61,8 @@ router.get("/:communityId/bhajans", isAuthenticated, queryParser({
 router.get("/bhajans/:id", isAuthenticated, bhajanController.getBhajanById);
 router.put("/bhajans/:id", isAuthenticated, bhajanController.updateBhajan);
 router.delete("/bhajans/:id", isAuthenticated, isSuperOrCommunityAdmin, bhajanController.deleteBhajan);
-router.get("/:communityId/users/orgofficers",isAuthenticated,communityController.getOfficerForCommunity)
+router.get("/:communityId/users/orgofficers",isAuthenticated,communityController.getOfficerForCommunity);
+router.get("/:communityId/gotraDetail", communityController.getGotraSubgotraByCommunityId);
 
 module.exports = router;
 

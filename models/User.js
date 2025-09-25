@@ -72,6 +72,7 @@ const userSchema = new mongoose.Schema({
     enum: ["male", "female", "other","not specified"],
   },
   occupation: { type: String },
+  profileImage:{type: String},
   religion: { type: String },
   motherTongue: { type: String },
   interests: {
@@ -92,6 +93,7 @@ const userSchema = new mongoose.Schema({
   thoughtOfMaking: { type: String },
   maritalStatus: { type: String, enum: ["single", "married", "divorced", "widowed"] },
   gotra: { type: String },
+  subGotra: { type: String },
   // Page permissions for dashboard users
   permissions: {
     type: [String],
