@@ -112,6 +112,38 @@ class UserController extends BaseController {
 
 
   }
+
+  // GET /api/users/pending - Fetch all users with pending community status
+  getPendingUsers = async (req, res, next) => {
+    try {
+      const { user } = req; // from isAuthenticated middleware
+
+      // Authorization check - only superadmin can access
+      if (user.role !== "superadmin") {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only superAdmin is allowed",
+        });
+      }
+
+      let query = { communityStatus: "pending" };
+
+      const pendingUsers = await this.model.find(query)
+        .populate('community', 'name code')
+        .select('-password')
+        .sort({ createdAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        message: "Pending users fetched successfully",
+        count: pendingUsers.length,
+        users: pendingUsers,
+      });
+
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new UserController();
