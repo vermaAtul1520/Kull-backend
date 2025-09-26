@@ -5,6 +5,8 @@ const userController = require("../controllers/userController"); // class-based 
 const isAuthenticated = require("../middleware/isAuthenticated");
 const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
+router.get("/pending",isAuthenticated, userController.getPendingUsers);
+
 router.put("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.updateUser);
 
 router.put("/:userId/assignCommunity", isAuthenticated, userController.assignCommunityToUser);
