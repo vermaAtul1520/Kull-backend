@@ -22,6 +22,11 @@ class CommunityController extends BaseController {
       }
 
       const newCommunity = await Community.create({ name, description, createdBy });
+      const config = await CommunityConfiguration.findOneAndUpdate(
+        { community: newCommunity._id },
+        { $set: { community: newCommunity._id } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
       res.status(201).json({ success: true, message: "Community created successfully", community: newCommunity });
     } catch (err) {
       next(err);
