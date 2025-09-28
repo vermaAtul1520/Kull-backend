@@ -1,19 +1,84 @@
 const mongoose = require("mongoose");
 
-const OccasionSchema = new mongoose.Schema(
+/**
+ * Occasion Content Schema
+ * Stores the actual media/file content for an Occasion
+ */
+const OccasionContentSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    author: { type: String },
-    description: { type: String },
-    category: { 
-      type: String, 
-      required: false 
+    occasion: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Occasion",
+      required: true,
     },
-    subCategory: { type: String }, // variable
-    type: { type: String, enum: ["pdf", "image"], required: true },
+    type: { 
+      type: String, 
+      enum: ["pdf", "image"], 
+      required: true 
+    },
     url: { type: String, required: true },
     thumbnailUrl: { type: String },
     language: { type: String },
+  },
+  { timestamps: true }
+);
+
+/**
+ * Occasion Category Schema
+ * Stores the categories of occasions (e.g., Festival, Ceremony)
+ */
+const OccasionCategorySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true },
+    description: { type: String },
+
+    // Ownership: category belongs to a community
+    community: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Community",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+/**
+ * Occasion Schema
+ * Stores the metadata for an occasion
+ */
+const OccasionSchema = new mongoose.Schema(
+  {
+    occasionType: {
+      type: String,
+      enum: [
+        "Family Deities",
+        "Birth Details / Naming",
+        "Boys Marriage",
+        "Girls Marriage",
+        "Death Details",
+      ],
+      required: true,
+    },
+
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OccasionCategory",
+      required: true,
+    },
+
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", "not specified"],
+      default: "not specified", // optional, nullable
+    },
+
+    gotra: {
+      type: String, required: false ,
+
+    },
+    subGotra: {
+      type: String, required: false ,
+    },
 
     // Ownership
     community: {
@@ -24,10 +89,27 @@ const OccasionSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
     },
+
+    // Reference to content (1:N relationship)
+    contents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "OccasionContent",
+      },
+    ],
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Occasion", OccasionSchema);
+// Export models
+const OccasionContent = mongoose.model("OccasionContent", OccasionContentSchema);
+const OccasionCategory = mongoose.model("OccasionCategory", OccasionCategorySchema);
+const Occasion = mongoose.model("Occasion", OccasionSchema);
+
+module.exports = {
+  OccasionContent,
+  OccasionCategory,
+  Occasion,
+};
