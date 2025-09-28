@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+const { OccasionCategory } = require("./Occasion");
+const { defaultOccasionCategories } = require("../utils/constants");
 
 
 // Community Configuration Schema
@@ -133,22 +135,38 @@ const communitySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-// Pre-save hook to generate custom code using community name + short ID
-communitySchema.pre('save', function (next) {
-  if (!this.code) {
-    // 1. Convert to lowercase
-    let nameSlug = this.name.toLowerCase();
 
-    // 2. Replace spaces and special characters with hyphen
-    nameSlug = nameSlug.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+communitySchema.pre("save", async function (next) {
+  try {
+    // 1. Generate code if not set
+    if (!this.code) {
+      let nameSlug = this.name.toLowerCase();
+      nameSlug = nameSlug.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const shortId = uuidv4().split("-")[0];
+      this.code = `${nameSlug}-${shortId}`;
+    }
 
-    // 3. Append short UUID
-    const shortId = uuidv4().split("-")[0];
+    // 2. Create default occasion categories
+    const categoriesToInsert = [];
+    for (const name of defaultOccasionCategories) {
+      const exists = await OccasionCategory.findOne({ name, community: this._id });
+      if (!exists) {
+        categoriesToInsert.push({
+          name,
+          description: `Default description of category: ${name}`,
+          community: this._id,
+        });
+      }
+    }
 
-    // 4. Combine to form code
-    this.code = `${nameSlug}-${shortId}`;
+    if (categoriesToInsert.length > 0) {
+      await OccasionCategory.insertMany(categoriesToInsert);
+    }
+
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 });
 
 const CommunityConfiguration = mongoose.model("CommunityConfiguration", communityConfigurationSchema);
