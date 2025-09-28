@@ -5,37 +5,69 @@ const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin")
 const { queryParser } = require("../middleware/queryParser");
 const occasionController = require("../controllers/occasionController");
 
-// Create Occasion
-router.post("/", isAuthenticated, isSuperOrCommunityAdmin, occasionController.createOccasion);
+// ------------------------
+// Occasions Routes
+// ------------------------
 
-// List all Occasions
+// Create single Occasion
+router.post(
+  "/",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  occasionController.createOccasion
+);
+
+// Bulk upload Occasions
+router.post(
+  "/bulk-upload",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  occasionController.bulkUploadOccasions
+);
+
+// List all Occasions with filter, sort, pagination
 router.get(
   "/",
   isAuthenticated,
   queryParser({
     allowFilterFields: [
-      "title",
+      "occasionType",
       "category",
-      "subCategory",
-      "type",
-      "language",
+      "gender",
+      "gotra",
+      "subGotra",
       "community",
       "createdBy",
       "createdAt",
     ],
-    allowSortFields: ["title", "category", "createdAt"],
+    allowSortFields: ["occasionType", "category", "createdAt"],
     maxLimit: 50,
   }),
   occasionController.getAllOccasions
 );
 
 // Get single Occasion
-router.get("/:id", isAuthenticated, isSuperOrCommunityAdmin, occasionController.getOccasion);
+router.get(
+  "/:id",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  occasionController.getOccasion
+);
 
 // Update Occasion
-router.put("/:id", isAuthenticated, isSuperOrCommunityAdmin, occasionController.updateOccasion);
+router.put(
+  "/:id",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  occasionController.updateOccasion
+);
 
 // Delete Occasion
-router.delete("/:id", isAuthenticated, isSuperOrCommunityAdmin, occasionController.deleteOccasion);
+router.delete(
+  "/:id",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  occasionController.deleteOccasion
+);
 
 module.exports = router;
