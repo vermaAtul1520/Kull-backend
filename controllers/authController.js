@@ -3,6 +3,19 @@ const sendEmail = require('../utils/sendEmail'); // Utility to send email
 const bcrypt = require("bcryptjs");
 const jwt = require('jsonwebtoken');
 const {Community} = require('../models/Community');
+const Appeal = require('../models/Appeal');
+const Post = require('../models/Post');
+const News = require('../models/News');
+const JobPost = require('../models/JobPost');
+const Meeting = require('../models/Meeting');
+const SportsEvent = require('../models/SportsEvent');
+const Donation = require('../models/Donation');
+const Dukaan = require('../models/Dukaan');
+const EducationResource = require('../models/EducationResource');
+const Kartavya = require('../models/Kartavya');
+const Occasion = require('../models/Occasion');
+const mongoose = require('mongoose');
+const os = require('os');
 
 exports.signupUser = async (req, res, next) => {
   try {
@@ -218,6 +231,185 @@ exports.loginUser = async (req, res) => {
     console.error('Login error:', error);
     return res.status(500).json({
       message: 'Server error.',
+      error: error.message,
+    });
+  }
+};
+
+exports.getAdminDashboardStats = async (req, res) => {
+  try {
+    // System Health Check
+    const startTime = Date.now();
+
+    // Check database connection
+    const dbConnectionState = mongoose.connection.readyState;
+    const dbStatus = {
+      0: 'Disconnected',
+      1: 'Connected',
+      2: 'Connecting',
+      3: 'Disconnecting'
+    };
+
+    // System metrics
+    const systemHealth = {
+      serverStatus: 'Online',
+      database: {
+        status: dbStatus[dbConnectionState] || 'Unknown',
+        connected: dbConnectionState === 1,
+        host: mongoose.connection.host,
+        name: mongoose.connection.name
+      },
+      apiStatus: 'Operational',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      nodeVersion: process.version,
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        systemTotal: Math.round(os.totalmem() / 1024 / 1024),
+        systemFree: Math.round(os.freemem() / 1024 / 1024)
+      },
+      cpu: {
+        model: os.cpus()[0].model,
+        cores: os.cpus().length,
+        loadAverage: os.loadavg()
+      },
+      platform: {
+        type: os.type(),
+        platform: os.platform(),
+        arch: os.arch(),
+        hostname: os.hostname()
+      }
+    };
+
+    const [
+      totalUsers,
+      totalCommunities,
+      pendingUsers,
+      approvedUsers,
+      rejectedUsers,
+      totalPosts,
+      totalAppeals,
+      pendingAppeals,
+      totalNews,
+      totalJobPosts,
+      totalMeetings,
+      totalSportsEvents,
+      totalDonations,
+      totalDukaans,
+      totalEducationResources,
+      totalKartavya,
+      totalOccasions,
+      recentUsers,
+      recentCommunities
+    ] = await Promise.all([
+      User.countDocuments(),
+      Community.countDocuments(),
+      User.countDocuments({ communityStatus: 'pending' }),
+      User.countDocuments({ communityStatus: 'approved' }),
+      User.countDocuments({ communityStatus: 'rejected' }),
+      Post.countDocuments(),
+      Appeal.countDocuments(),
+      Appeal.countDocuments({ status: 'submitted' }),
+      News.countDocuments(),
+      JobPost.countDocuments(),
+      Meeting.countDocuments(),
+      SportsEvent.countDocuments(),
+      Donation.countDocuments(),
+      Dukaan.countDocuments(),
+      EducationResource.countDocuments(),
+      Kartavya.countDocuments(),
+      Occasion.countDocuments(),
+      User.find().sort({ createdAt: -1 }).limit(5).select('firstName lastName email phone communityStatus createdAt'),
+      Community.find().sort({ createdAt: -1 }).limit(5).select('name code createdAt')
+    ]);
+
+    const userStatusBreakdown = {
+      pending: pendingUsers,
+      approved: approvedUsers,
+      rejected: rejectedUsers
+    };
+
+    const roleBreakdown = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+
+    const communityUsersBreakdown = await User.aggregate([
+      { $match: { community: { $exists: true, $ne: null } } },
+      { $group: { _id: '$roleInCommunity', count: { $sum: 1 } } }
+    ]);
+
+    const monthlyUserGrowth = await User.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': -1, '_id.month': -1 } },
+      { $limit: 12 }
+    ]);
+
+    // Calculate response time
+    const responseTime = Date.now() - startTime;
+    systemHealth.responseTime = `${responseTime}ms`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        systemHealth,
+        overview: {
+          totalUsers,
+          totalCommunities,
+          pendingUsers,
+          approvedUsers,
+          rejectedUsers
+        },
+        userStats: {
+          total: totalUsers,
+          statusBreakdown: userStatusBreakdown,
+          roleBreakdown: roleBreakdown.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+          }, {}),
+          communityRoleBreakdown: communityUsersBreakdown.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+          }, {}),
+          monthlyGrowth: monthlyUserGrowth
+        },
+        contentStats: {
+          totalPosts,
+          totalNews,
+          totalJobPosts,
+          totalMeetings,
+          totalSportsEvents,
+          totalDukaans,
+          totalEducationResources,
+          totalKartavya,
+          totalOccasions,
+          totalDonations
+        },
+        appealStats: {
+          total: totalAppeals,
+          pending: pendingAppeals,
+          resolved: totalAppeals - pendingAppeals
+        },
+        recentActivity: {
+          recentUsers,
+          recentCommunities
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin dashboard stats error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching dashboard statistics.',
       error: error.message,
     });
   }
