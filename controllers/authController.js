@@ -28,6 +28,8 @@ exports.signupUser = async (req, res, next) => {
       thoughtOfMaking,
       maritalStatus,
       gotra,
+      subGotra,
+      profileImage,
     } = req.body;
 
     // Validate email/phone
@@ -71,6 +73,8 @@ exports.signupUser = async (req, res, next) => {
       thoughtOfMaking,
       maritalStatus,
       gotra,
+      subGotra,
+      profileImage,
       communityStatus: "pending", // always pending by default
     });
 

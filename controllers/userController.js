@@ -144,6 +144,62 @@ class UserController extends BaseController {
       next(err);
     }
   };
+
+  updateOwnProfile = async (req, res, next) => {
+    try {
+      const { user } = req; // from isAuthenticated middleware
+      const updateData = req.body;
+
+      // Define allowed fields that users can update for their own profile
+      const allowedFields = [
+        'firstName', 'lastName', 'email', 'phone', 'gender', 'occupation',
+        'profileImage', 'religion', 'motherTongue', 'interests',
+        'cast', 'fatherName', 'address', 'pinCode', 'alternativePhone',
+        'maritalStatus', 'gotra', 'subGotra'
+      ];
+
+      // Filter updateData to only include allowed fields
+      const filteredUpdateData = {};
+      Object.keys(updateData).forEach(key => {
+        if (allowedFields.includes(key)) {
+          filteredUpdateData[key] = updateData[key];
+        }
+      });
+
+      // Check if there are any fields to update
+      if (Object.keys(filteredUpdateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid fields provided for update"
+        });
+      }
+
+      // Update the user's profile
+      const updatedUser = await this.model.findByIdAndUpdate(
+        user.id,
+        filteredUpdateData,
+        { new: true, runValidators: true }
+      ).select('-password');
+
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        user: updatedUser
+      });
+
+    } catch (err) {
+      if (err.code === 11000) {
+        // Handle duplicate key error
+        const field = Object.keys(err.keyPattern)[0];
+        return res.status(400).json({
+          success: false,
+          message: `${field} already exists`
+        });
+      }
+      next(err);
+    }
+  };
 }
 
 module.exports = new UserController();
