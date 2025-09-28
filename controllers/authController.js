@@ -64,7 +64,7 @@ exports.signupUser = async (req, res, next) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user (do not assign community yet)
+    // Create user (auto-approve if referral code is provided)
     const newUser = await User.create({
       firstName,
       lastName,
@@ -88,7 +88,7 @@ exports.signupUser = async (req, res, next) => {
       gotra,
       subGotra,
       profileImage,
-      communityStatus: "pending", // always pending by default
+      communityStatus: referral ? "approved" : "pending", // auto-approve if referral provided
     });
 
     // -------- CASE 1: User came with referral code --------------
@@ -116,14 +116,14 @@ exports.signupUser = async (req, res, next) => {
       if (communityAdmin) {
         await sendEmail({
           to: communityAdmin.email,
-          subject: "New User Request to Join Your Community",
+          subject: "New User Joined Your Community",
           html: `
-            <h2>New Signup for Your Community</h2>
+            <h2>New User Joined Your Community</h2>
             <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
             <p><strong>Email:</strong> ${newUser.email || "N/A"}</p>
             <p><strong>Phone:</strong> ${newUser.phone || "N/A"}</p>
             <p><strong>User Code:</strong> ${newUser.code}</p>
-            <p>Status: <strong>Pending</strong></p>
+            <p>Status: <strong>Automatically Approved</strong> (joined with referral code)</p>
           `
         });
       }
@@ -149,7 +149,7 @@ exports.signupUser = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       message: referral
-        ? "Signup successful. Community admin has been notified."
+        ? "Signup successful. You have been automatically approved and added to the community."
         : "Signup successful. Super admin has been notified.",
       user: {
         id: newUser._id,
