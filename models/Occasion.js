@@ -63,7 +63,7 @@ const OccasionSchema = new mongoose.Schema(
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OccasionCategory",
-      required: true,
+      required: false,
     },
 
     gender: {
