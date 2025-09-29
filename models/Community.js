@@ -140,10 +140,52 @@ communitySchema.pre("save", async function (next) {
   try {
     // 1. Generate code if not set
     if (!this.code) {
-      let nameSlug = this.name.toLowerCase();
-      nameSlug = nameSlug.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-      const shortId = uuidv4().split("-")[0];
-      this.code = `${nameSlug}-${shortId}`;
+      // Take first 5 letters from community name
+      let namePrefix = this.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase();
+
+      // If less than 5 letters, pad with additional letters or fallback
+      if (namePrefix.length < 5) {
+        // Try to get more letters from the name
+        const allLetters = this.name.replace(/[^a-zA-Z]/g, '').toUpperCase();
+
+        if (allLetters.length >= 5) {
+          namePrefix = allLetters.slice(0, 5);
+        } else {
+          // Pad with repeated letters or use COMMU as fallback
+          while (namePrefix.length < 5 && allLetters.length > 0) {
+            namePrefix += allLetters.charAt(namePrefix.length % allLetters.length);
+          }
+
+          // Final fallback if still less than 5
+          if (namePrefix.length < 5) {
+            namePrefix = (namePrefix + 'COMMU').slice(0, 5);
+          }
+        }
+      }
+
+      let attempts = 1;
+      let generatedCode;
+
+      // Try to generate a unique code starting from 01, 02, 03...
+      do {
+        const suffix = attempts.toString().padStart(2, '0'); // 01, 02, 03, etc.
+        generatedCode = `${namePrefix}${suffix}`;
+
+        // Check if this code already exists
+        const existingCommunity = await mongoose.model('Community').findOne({ code: generatedCode });
+        if (!existingCommunity) {
+          this.code = generatedCode;
+          break;
+        }
+
+        attempts++;
+      } while (attempts <= 99); // Max 99 attempts (01-99)
+
+      // Fallback: if still no unique code found after 99 attempts
+      if (!this.code) {
+        const timestamp = Date.now().toString().slice(-2);
+        this.code = `${namePrefix}${timestamp}`;
+      }
     }
 
     // 2. Create default occasion categories
