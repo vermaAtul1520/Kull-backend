@@ -13,7 +13,7 @@ const Donation = require('../models/Donation');
 const Dukaan = require('../models/Dukaan');
 const EducationResource = require('../models/EducationResource');
 const Kartavya = require('../models/Kartavya');
-const Occasion = require('../models/Occasion');
+const {Occasion} = require('../models/Occasion');
 const mongoose = require('mongoose');
 const os = require('os');
 
@@ -410,6 +410,175 @@ exports.getAdminDashboardStats = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error while fetching dashboard statistics.',
+      error: error.message,
+    });
+  }
+};
+
+exports.getCommunityAdminDashboardStats = async (req, res) => {
+  try {
+    const { user } = req;
+
+    // If superadmin, they can see all stats (redirect to main dashboard)
+    if (user.role === 'superadmin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Superadmin should use /admin/dashboard-stats endpoint for system-wide stats.'
+      });
+    }
+
+    // Ensure user is a community admin and has a community
+    if (!user.community || user.roleInCommunity !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Only community admin can access community stats.'
+      });
+    }
+
+    const communityId = user.community;
+    const startTime = Date.now();
+
+    // Check database connection
+    const dbConnectionState = mongoose.connection.readyState;
+    const dbStatus = {
+      0: 'Disconnected',
+      1: 'Connected',
+      2: 'Connecting',
+      3: 'Disconnecting'
+    };
+
+    // System metrics (simplified for community admin)
+    const systemHealth = {
+      serverStatus: 'Online',
+      database: {
+        status: dbStatus[dbConnectionState] || 'Unknown',
+        connected: dbConnectionState === 1
+      },
+      apiStatus: 'Operational',
+      timestamp: new Date().toISOString()
+    };
+
+    // Get community-specific stats
+    const [
+      totalCommunityUsers,
+      pendingCommunityUsers,
+      approvedCommunityUsers,
+      rejectedCommunityUsers,
+      totalCommunityPosts,
+      totalCommunityAppeals,
+      pendingCommunityAppeals,
+      totalCommunityNews,
+      totalCommunityJobPosts,
+      totalCommunityMeetings,
+      totalCommunitySportsEvents,
+      totalCommunityDonations,
+      totalCommunityDukaans,
+      totalCommunityEducationResources,
+      totalCommunityKartavya,
+      totalCommunityOccasions,
+      recentCommunityUsers,
+      communityInfo
+    ] = await Promise.all([
+      User.countDocuments({ community: communityId }),
+      User.countDocuments({ community: communityId, communityStatus: 'pending' }),
+      User.countDocuments({ community: communityId, communityStatus: 'approved' }),
+      User.countDocuments({ community: communityId, communityStatus: 'rejected' }),
+      Post.countDocuments({ community: communityId }),
+      Appeal.countDocuments({ community: communityId }),
+      Appeal.countDocuments({ community: communityId, status: 'submitted' }),
+      News.countDocuments({ community: communityId }),
+      JobPost.countDocuments({ community: communityId }),
+      Meeting.countDocuments({ community: communityId }),
+      SportsEvent.countDocuments({ community: communityId }),
+      Donation.countDocuments({ community: communityId }),
+      Dukaan.countDocuments({ community: communityId }),
+      EducationResource.countDocuments({ community: communityId }),
+      Kartavya.countDocuments({ community: communityId }),
+      Occasion.countDocuments({ community: communityId }),
+      User.find({ community: communityId }).sort({ createdAt: -1 }).limit(5).select('firstName lastName email phone communityStatus createdAt'),
+      Community.findById(communityId).select('name code createdAt')
+    ]);
+
+    const userStatusBreakdown = {
+      pending: pendingCommunityUsers,
+      approved: approvedCommunityUsers,
+      rejected: rejectedCommunityUsers
+    };
+
+    // Role breakdown within the community
+    const roleBreakdown = await User.aggregate([
+      { $match: { community: new mongoose.Types.ObjectId(communityId) } },
+      { $group: { _id: '$roleInCommunity', count: { $sum: 1 } } }
+    ]);
+
+    // Monthly user growth for the community
+    const monthlyUserGrowth = await User.aggregate([
+      { $match: { community: new mongoose.Types.ObjectId(communityId) } },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': -1, '_id.month': -1 } },
+      { $limit: 12 }
+    ]);
+
+    // Calculate response time
+    const responseTime = Date.now() - startTime;
+    systemHealth.responseTime = `${responseTime}ms`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        communityInfo,
+        systemHealth,
+        overview: {
+          totalUsers: totalCommunityUsers,
+          pendingUsers: pendingCommunityUsers,
+          approvedUsers: approvedCommunityUsers,
+          rejectedUsers: rejectedCommunityUsers
+        },
+        userStats: {
+          total: totalCommunityUsers,
+          statusBreakdown: userStatusBreakdown,
+          roleBreakdown: roleBreakdown.reduce((acc, item) => {
+            acc[item._id || 'undefined'] = item.count;
+            return acc;
+          }, {}),
+          monthlyGrowth: monthlyUserGrowth
+        },
+        contentStats: {
+          totalPosts: totalCommunityPosts,
+          totalNews: totalCommunityNews,
+          totalJobPosts: totalCommunityJobPosts,
+          totalMeetings: totalCommunityMeetings,
+          totalSportsEvents: totalCommunitySportsEvents,
+          totalDukaans: totalCommunityDukaans,
+          totalEducationResources: totalCommunityEducationResources,
+          totalKartavya: totalCommunityKartavya,
+          totalOccasions: totalCommunityOccasions,
+          totalDonations: totalCommunityDonations
+        },
+        appealStats: {
+          total: totalCommunityAppeals,
+          pending: pendingCommunityAppeals,
+          resolved: totalCommunityAppeals - pendingCommunityAppeals
+        },
+        recentActivity: {
+          recentUsers: recentCommunityUsers
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Community admin dashboard stats error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching community dashboard statistics.',
       error: error.message,
     });
   }
