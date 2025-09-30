@@ -1,6 +1,13 @@
-const { v4: uuidv4 } = require("uuid");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+
+// Function to generate human-readable user code
+const generateUserCode = function() {
+  const firstInitial = this.firstName ? this.firstName.charAt(0).toUpperCase() : 'U';
+  const lastInitial = this.lastName ? this.lastName.charAt(0).toUpperCase() : 'U';
+  const phoneDigits = this.phone ? this.phone.slice(-4) : Math.floor(1000 + Math.random() * 9000).toString();
+  const randomDigits = Math.floor(10 + Math.random() * 90); // 2 random digits
+  return `${firstInitial}${lastInitial}${phoneDigits}${randomDigits}`;
+};
 
 const userSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
@@ -8,7 +15,6 @@ const userSchema = new mongoose.Schema({
   code: {
     type: String,
     unique: true,
-    default: () => uuidv4(),
   },
   email: {
     type: String,
@@ -104,6 +110,30 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Pre-save hook to generate code if not provided
+userSchema.pre('save', async function(next) {
+  if (!this.code) {
+    let attempts = 0;
+    let codeGenerated = false;
+
+    while (!codeGenerated && attempts < 10) {
+      this.code = generateUserCode.call(this);
+
+      // Check if code already exists
+      const existingUser = await mongoose.model('User').findOne({ code: this.code });
+      if (!existingUser) {
+        codeGenerated = true;
+      }
+      attempts++;
+    }
+
+    if (!codeGenerated) {
+      return next(new Error('Unable to generate unique user code'));
+    }
+  }
+  next();
 });
 
 module.exports = mongoose.model("User", userSchema);
