@@ -325,9 +325,9 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Get current user's community
-    const currentUser = await User.findById(req.user._id).select('community');
+    const currentUser = await User.findById(req.user.id).select('community');
 
-    if (!currentUser.community) {
+    if (!currentUser?.community) {
       return res.status(400).json({
         success: false,
         message: 'You must be part of a community to add family members'
@@ -343,8 +343,8 @@ exports.searchUsers = async (req, res) => {
         { phone: { $regex: query, $options: 'i' } },
         { code: { $regex: query, $options: 'i' } }
       ],
-      _id: { $ne: req.user._id }, // Exclude current user
-      community: currentUser.community, // Same community only
+      _id: { $ne: req.user.id }, // Exclude current user
+      community: currentUser?.community, // Same community only
       communityStatus: 'approved' // Only approved members
     })
     .select('firstName lastName email phone profileImage code gender community')
