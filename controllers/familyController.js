@@ -36,7 +36,7 @@ const getReverseRelationType = (relationType, userGender) => {
 // Add family relationship
 exports.addFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { relatedUserId, relationType } = req.body;
 
     // Validate input
@@ -121,7 +121,7 @@ exports.addFamilyRelationship = async (req, res) => {
 // Get user's family tree
 exports.getFamilyTree = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user._id;
+    const userId = req.params.userId || req.user.id;
 
     // Get all relationships for the user
     const relationships = await FamilyRelationship.find({ user: userId })
@@ -204,7 +204,7 @@ exports.getFamilyTree = async (req, res) => {
 // Update family relationship
 exports.updateFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { relationshipId } = req.params;
     const { relationType } = req.body;
 
@@ -270,7 +270,7 @@ exports.updateFamilyRelationship = async (req, res) => {
 // Remove family relationship
 exports.removeFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { relationshipId } = req.params;
 
     // Find the relationship
