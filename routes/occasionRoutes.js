@@ -46,11 +46,10 @@ router.get(
   occasionController.getAllOccasions
 );
 
-// Get single Occasion
+// Get single Occasion (All authenticated users)
 router.get(
   "/:id",
   isAuthenticated,
-  isSuperOrCommunityAdmin,
   occasionController.getOccasion
 );
 
