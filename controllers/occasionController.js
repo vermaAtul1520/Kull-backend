@@ -46,16 +46,20 @@ class OccasionController extends BaseController {
   // Get all Occasions
   getAllOccasions = async (req, res, next) => {
     try {
-      // Filter based on user role
-      if (req.user.isCommunityAdmin) {
+      // Filter based on user role and community
+      if (req.user.isSuperAdmin) {
+        // Super admin can see all, but filter by community if provided
+        if (req.query.community) {
+          req.parsedQuery.filter = {
+            ...req.parsedQuery.filter,
+            community: req.query.community,
+          };
+        }
+      } else {
+        // Community admin and normal users see only their community's occasions
         req.parsedQuery.filter = {
           ...req.parsedQuery.filter,
           community: req.user.community,
-        };
-      } else if (!req.user.isSuperAdmin) {
-        req.parsedQuery.filter = {
-          ...req.parsedQuery.filter,
-          createdBy: req.user.id,
         };
       }
 

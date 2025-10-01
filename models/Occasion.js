@@ -11,10 +11,10 @@ const OccasionContentSchema = new mongoose.Schema(
       ref: "Occasion",
       required: true,
     },
-    type: { 
-      type: String, 
-      enum: ["pdf", "image"], 
-      required: true 
+    type: {
+      type: String,
+      enum: ["pdf", "image", "video"],
+      required: true
     },
     url: { type: String, required: true },
     thumbnailUrl: { type: String },
