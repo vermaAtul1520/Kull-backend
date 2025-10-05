@@ -29,8 +29,21 @@ const OccasionContentSchema = new mongoose.Schema(
  */
 const OccasionCategorySchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
     description: { type: String },
+
+    // Link category to one of the 5 occasion types
+    occasionType: {
+      type: String,
+      enum: [
+        "Family Deities",
+        "Birth Details / Naming",
+        "Boys Marriage",
+        "Girls Marriage",
+        "Death Details",
+      ],
+      required: true,
+    },
 
     // Ownership: category belongs to a community
     community: {
