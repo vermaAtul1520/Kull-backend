@@ -12,16 +12,19 @@ class OccasionCategoryController extends BaseController {
     try {
       // Super admin must provide community
       if (req.user.isSuperAdmin) {
+        const body = JSON.stringify(req.body);
+        console.log("in craeet categoryy---",body)
         if (!req.body.community) {
           return res.status(400).json({
             success: false,
-            message: `Community is required when creating category as super admin , ${req.user.isSuperAdmin},  ${req.body.community}`,
+            message: `Community is required when creating category as super admin , ${req.user.isSuperAdmin},${body}`,
           });
         }
       } else {
         req.body.community = req.user.community;
       }
 
+      
       const { name, description } = req.body;
       if (!name) {
         return res.status(400).json({ success: false, message: "Category name is required" });
