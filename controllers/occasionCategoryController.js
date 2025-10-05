@@ -24,28 +24,32 @@ class OccasionCategoryController extends BaseController {
         req.body.community = req.user.community;
       }
 
-      
-      const { name, description } = req.body;
+      const { name, description, occasionType } = req.body;
       if (!name) {
         return res.status(400).json({ success: false, message: "Category name is required" });
       }
+      if (!occasionType) {
+        return res.status(400).json({ success: false, message: "Occasion type is required" });
+      }
 
-      // Check if category already exists in this community
+      // Check if category already exists in this community with same occasion type
       const existingCategory = await this.model.findOne({
         name,
+        occasionType,
         community: req.body.community,
       });
 
       if (existingCategory) {
         return res.status(400).json({
           success: false,
-          message: "Category with this name already exists in this community",
+          message: "Category with this name already exists for this occasion type in this community",
         });
       }
 
       const category = await this.model.create({
         name,
         description,
+        occasionType,
         community: req.body.community,
       });
 
@@ -121,10 +125,11 @@ class OccasionCategoryController extends BaseController {
         });
       }
 
-      // Check for duplicate name in same community
+      // Check for duplicate name in same community and occasion type
       if (req.body.name && req.body.name !== category.name) {
         const existingCategory = await this.model.findOne({
           name: req.body.name,
+          occasionType: req.body.occasionType || category.occasionType,
           community: category.community,
           _id: { $ne: req.params.id },
         });
@@ -132,13 +137,13 @@ class OccasionCategoryController extends BaseController {
         if (existingCategory) {
           return res.status(400).json({
             success: false,
-            message: "Category with this name already exists in this community",
+            message: "Category with this name already exists for this occasion type in this community",
           });
         }
       }
 
       // Update allowed fields
-      const allowedUpdates = ["name", "description"];
+      const allowedUpdates = ["name", "description", "occasionType"];
       allowedUpdates.forEach(field => {
         if (req.body[field] !== undefined) category[field] = req.body[field];
       });

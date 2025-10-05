@@ -22,8 +22,8 @@ router.get(
   "/",
   isAuthenticated,
   queryParser({
-    allowFilterFields: ["name", "community"],
-    allowSortFields: ["name", "createdAt"],
+    allowFilterFields: ["name", "occasionType", "community"],
+    allowSortFields: ["name", "occasionType", "createdAt"],
     maxLimit: 100,
   }),
   occasionCategoryController.getAllCategories
