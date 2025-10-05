@@ -6,6 +6,7 @@ class OccasionCategoryController extends BaseController {
     super(OccasionCategory);
   }
 
+  
   // Create OccasionCategory
   createCategory = async (req, res, next) => {
     try {
