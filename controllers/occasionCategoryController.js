@@ -15,7 +15,7 @@ class OccasionCategoryController extends BaseController {
         if (!req.body.community) {
           return res.status(400).json({
             success: false,
-            message: "Community is required when creating category as super admin",
+            message: `Community is required when creating category as super admin , ${req.user.isSuperAdmin},  ${req.body.community}`,
           });
         }
       } else {
