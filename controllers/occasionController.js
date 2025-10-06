@@ -55,6 +55,10 @@ class OccasionController extends BaseController {
         await occasion.save();
       }
 
+      // Populate category and contents before returning
+      await occasion.populate('category');
+      await occasion.populate('contents');
+
       res.status(201).json({ success: true, data: occasion });
     } catch (err) {
       next(err);
@@ -81,16 +85,30 @@ class OccasionController extends BaseController {
         };
       }
 
-      return this.getAll(req, res, next);
+      const { filter, sort, projection, skip, limit, page } = req.parsedQuery;
+      const docs = await this.model.find(filter)
+        .select(projection || "")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .populate('category')
+        .populate('contents');
+      const total = await this.model.countDocuments(filter);
+
+      return res.status(200).json({ success: true, total, page, limit, count: docs.length, data: docs });
     } catch (err) {
       next(err);
     }
   };
 
   // Get single Occasion
-  getOccasion = (req, res, next) => {
+  getOccasion = async (req, res, next) => {
     try {
-      return this.getOne(req, res, next);
+      const doc = await this.model.findById(req.params.id)
+        .populate('category')
+        .populate('contents');
+      if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+      res.status(200).json({ success: true, data: doc });
     } catch (err) {
       next(err);
     }
@@ -118,6 +136,8 @@ class OccasionController extends BaseController {
       });
 
       await occasion.save();
+      await occasion.populate('category');
+      await occasion.populate('contents');
       res.status(200).json({ success: true, data: occasion });
     } catch (err) {
       next(err);
