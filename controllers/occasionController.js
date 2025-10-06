@@ -24,18 +24,36 @@ class OccasionController extends BaseController {
       }
 
       // Optional fields: gender, gotra, subGotra
-      const { category, gender, gotra, subGotra } = req.body;
+      const { category, gender, gotra, subGotra, contents } = req.body;
       if (!category) {
         return res.status(400).json({ success: false, message: "Category is required" });
       }
 
+      // Create occasion without contents
       const occasion = await this.model.create({
-        ...req.body,
+        occasionType: req.body.occasionType,
         category,
         gender: gender || "not specified",
         gotra: gotra || null,
         subGotra: subGotra || null,
+        community: req.body.community,
+        createdBy: req.body.createdBy,
       });
+
+      // Create contents if provided
+      if (contents && Array.isArray(contents) && contents.length > 0) {
+        const contentDocs = contents.map(content => ({
+          occasion: occasion._id,
+          type: content.type,
+          url: content.url,
+          thumbnailUrl: content.thumbnailUrl,
+          language: content.language,
+        }));
+
+        const createdContents = await OccasionContent.insertMany(contentDocs);
+        occasion.contents = createdContents.map(c => c._id);
+        await occasion.save();
+      }
 
       res.status(201).json({ success: true, data: occasion });
     } catch (err) {
