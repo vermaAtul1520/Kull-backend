@@ -79,7 +79,11 @@ class OccasionCategoryController extends BaseController {
         };
       }
 
-      return this.getAll(req, res, next);
+      const { filter, sort, projection } = req.parsedQuery;
+      const docs = await this.model.find(filter).select(projection || "").sort(sort);
+      const total = await this.model.countDocuments(filter);
+
+      return res.status(200).json({ success: true, total, count: docs.length, data: docs });
     } catch (err) {
       next(err);
     }
