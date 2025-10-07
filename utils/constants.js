@@ -1,3 +1,11 @@
+const occasionTypes = [
+  "Family Deities",
+  "Birth Details / Naming",
+  "Boys Marriage",
+  "Girls Marriage",
+  "Death Details",
+];
+
 const defaultOccasionCategories = [
   "Viewing",
   "Roka/Sagun",
@@ -14,4 +22,4 @@ const defaultOccasionCategories = [
   "Entering the home"
 ];
 
-module.exports = { defaultOccasionCategories };
+module.exports = { defaultOccasionCategories, occasionTypes };
