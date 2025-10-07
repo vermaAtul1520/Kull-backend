@@ -1,7 +1,4 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
-const { OccasionCategory } = require("./Occasion");
-const { defaultOccasionCategories } = require("../utils/constants");
 
 
 // Community Configuration Schema
@@ -186,23 +183,6 @@ communitySchema.pre("save", async function (next) {
         const timestamp = Date.now().toString().slice(-2);
         this.code = `${namePrefix}${timestamp}`;
       }
-    }
-
-    // 2. Create default occasion categories
-    const categoriesToInsert = [];
-    for (const name of defaultOccasionCategories) {
-      const exists = await OccasionCategory.findOne({ name, community: this._id });
-      if (!exists) {
-        categoriesToInsert.push({
-          name,
-          description: `Default description of category: ${name}`,
-          community: this._id,
-        });
-      }
-    }
-
-    if (categoriesToInsert.length > 0) {
-      await OccasionCategory.insertMany(categoriesToInsert);
     }
 
     next();

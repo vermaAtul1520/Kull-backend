@@ -42,7 +42,7 @@ const OccasionCategorySchema = new mongoose.Schema(
         "Girls Marriage",
         "Death Details",
       ],
-      required: true,
+      required: false,
     },
 
     // Ownership: category belongs to a community
