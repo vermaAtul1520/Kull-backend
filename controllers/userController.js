@@ -200,6 +200,54 @@ class UserController extends BaseController {
       next(err);
     }
   };
+
+  // GET /api/users/city-search?query=delhi - Search users by address or pincode within same community
+  citySearch = async (req, res, next) => {
+    try {
+      const { user } = req; // from isAuthenticated middleware
+      const { query } = req.query;
+
+      // Validate query parameter
+      if (!query || query.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Search query is required"
+        });
+      }
+
+      // Ensure user belongs to a community
+      if (!user.community) {
+        return res.status(403).json({
+          success: false,
+          message: "You must belong to a community to search members"
+        });
+      }
+
+      // Case-insensitive partial match in address and pinCode fields
+      const searchRegex = new RegExp(query.trim(), 'i');
+
+      const matchedUsers = await this.model.find({
+        community: user.community, // Only users from same community
+        $or: [
+          { address: searchRegex },
+          { pinCode: searchRegex }
+        ]
+      })
+      .select('firstName lastName email phone address pinCode code gender occupation profileImage roleInCommunity gotra subGotra')
+      .sort({ firstName: 1 })
+      .lean();
+
+      return res.status(200).json({
+        success: true,
+        message: "City search completed successfully",
+        count: matchedUsers.length,
+        users: matchedUsers
+      });
+
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 module.exports = new UserController();
