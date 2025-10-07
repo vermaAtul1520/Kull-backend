@@ -7,6 +7,8 @@ const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin")
 
 router.get("/pending",isAuthenticated, userController.getPendingUsers);
 
+router.get("/city-search", isAuthenticated, userController.citySearch);
+
 router.put("/profile", isAuthenticated, userController.updateOwnProfile);
 
 router.put("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.updateUser);
