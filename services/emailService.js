@@ -1,10 +1,36 @@
 const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 const fs = require('fs').promises;
 const path = require('path');
 const emailTemplates = require('../config/emailTemplates');
 
-// Initialize SendGrid with API key
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Determine which email service to use
+const USE_SENDGRID = process.env.USE_SENDGRID === 'true' && process.env.SENDGRID_API_KEY;
+const USE_NODEMAILER = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+
+// Initialize SendGrid (if enabled and configured)
+if (USE_SENDGRID) {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    console.log('✅ Email Service: SendGrid initialized');
+}
+
+// Initialize Nodemailer transporter (Gmail SMTP)
+let nodemailerTransporter = null;
+if (USE_NODEMAILER) {
+    nodemailerTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+    console.log('✅ Email Service: Nodemailer (Gmail) initialized');
+}
+
+// Warning if no email service is configured
+if (!USE_SENDGRID && !USE_NODEMAILER) {
+    console.warn('⚠️  WARNING: No email service configured. Please set up SendGrid or Nodemailer credentials.');
+}
 
 // Base template cache
 let baseTemplate = null;
@@ -79,32 +105,59 @@ const buildEmailFromTemplate = async (templateName, data) => {
     }
 };
 
-// Base email sending function
+// Base email sending function with automatic fallback
 const sendEmail = async (to, subject, html, text = null) => {
-    try {
-        const msg = {
-            to,
-            from: {
-                email: process.env.SENDGRID_FROM_EMAIL || 'noreply@kull.com',
-                name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
-            },
-            subject,
-            html,
-            text: text || html.replace(/<[^>]*>/g, '') // Strip HTML for text version
-        };
+    // Try SendGrid first (if enabled)
+    if (USE_SENDGRID) {
+        try {
+            const msg = {
+                to,
+                from: {
+                    email: process.env.SENDGRID_FROM_EMAIL || 'noreply@kull.com',
+                    name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
+                },
+                subject,
+                html,
+                text: text || html.replace(/<[^>]*>/g, '')
+            };
 
-        const response = await sgMail.send(msg);
-        console.log(`Email sent successfully to ${to}: ${subject}`);
-        return response;
-    } catch (error) {
-        console.error('SendGrid email error:', error);
+            const response = await sgMail.send(msg);
+            console.log(`✅ Email sent via SendGrid to ${to}: ${subject}`);
+            return response;
+        } catch (error) {
+            console.error('❌ SendGrid failed:', error.message);
 
-        if (error.response) {
-            console.error('SendGrid error body:', error.response.body);
+            // If SendGrid fails and Nodemailer is available, try fallback
+            if (USE_NODEMAILER) {
+                console.log('🔄 Attempting fallback to Nodemailer...');
+            } else {
+                throw new Error(`SendGrid failed and no fallback available: ${error.message}`);
+            }
         }
-
-        throw new Error(`Failed to send email: ${error.message}`);
     }
+
+    // Use Nodemailer (Gmail SMTP) - either as primary or fallback
+    if (USE_NODEMAILER) {
+        try {
+            const mailOptions = {
+                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${process.env.EMAIL_USER}>`,
+                to: to,
+                subject: subject,
+                html: html,
+                text: text || html.replace(/<[^>]*>/g, '')
+            };
+
+            const response = await nodemailerTransporter.sendMail(mailOptions);
+            console.log(`✅ Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
+            return response;
+        } catch (error) {
+            console.error('❌ Nodemailer failed:', error);
+            throw new Error(`Failed to send email via Nodemailer: ${error.message}`);
+        }
+    }
+
+    // No email service available
+    throw new Error('No email service configured. Please set up SendGrid or Nodemailer.');
 };
 
 // Generic template email sender
@@ -537,6 +590,16 @@ const sendBulkEmailToCommunity = async (emails, subject, content, communityName)
     }
 };
 
+const sendCommunityAssignmentEmail = async (email, firstName, communityName, loginIdentifier, temporaryPassword) => {
+    return await sendTemplateEmail('communityAssignment', email, {
+        firstName,
+        communityName,
+        loginIdentifier,
+        temporaryPassword,
+        loginUrl: `${process.env.FRONTEND_URL}/login`
+    });
+};
+
 // Clear template cache (useful for development)
 const clearTemplateCache = () => {
     baseTemplate = null;
@@ -562,6 +625,7 @@ module.exports = {
     sendNewContentNotification,
     sendEmailVerification,
     sendBulkEmailToCommunity,
+    sendCommunityAssignmentEmail,
     sendTemplateEmail, // For custom template emails
     sendEmail, // For completely custom emails
     clearTemplateCache

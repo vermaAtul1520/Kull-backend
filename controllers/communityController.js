@@ -1,6 +1,9 @@
 const BaseController = require("../utils/baseController");
 const { Community, CommunityConfiguration } = require("../models/Community");
 const User = require("../models/User");
+const emailService = require("../services/emailService");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 
 class CommunityController extends BaseController {
   constructor() {
@@ -177,6 +180,164 @@ class CommunityController extends BaseController {
       next(err);
     }
   }
+
+  // POST /api/users/add-by-admin - Admin/SuperAdmin creates a new user with all details
+  addUserByAdmin = async (req, res, next) => {
+    try {
+      const { user: adminUser } = req; // from isAuthenticated middleware
+      const userData = req.body;
+
+      // Authorization check - only superadmin or community admin can add users
+      if (adminUser.role !== "superadmin" && adminUser.roleInCommunity !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only superadmin or community admin can add users"
+        });
+      }
+
+      // Validate required fields
+      if (!userData.firstName || !userData.lastName) {
+        return res.status(400).json({
+          success: false,
+          message: "First name and last name are required"
+        });
+      }
+
+      if (!userData.email && !userData.phone) {
+        return res.status(400).json({
+          success: false,
+          message: "Either email or phone is required"
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await User.findOne({
+        $or: [
+          { email: userData.email },
+          { phone: userData.phone }
+        ]
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this email or phone already exists"
+        });
+      }
+
+      // Generate a temporary password
+      const temporaryPassword = crypto.randomBytes(8).toString('hex'); // 16-character random password
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+      // Get community information
+      let community = null;
+      let communityId = null;
+
+      // If community admin is adding user, use their community
+      if (adminUser.roleInCommunity === "admin" && adminUser.community) {
+        communityId = adminUser.community;
+        community = await Community.findById(communityId);
+      }
+
+      // Create new user
+      const newUser = await User.create({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email || undefined,
+        phone: userData.phone || undefined,
+        password: hashedPassword,
+        cGotNo: userData.cGotNo || undefined,
+        address: userData.address || undefined,
+        roleInCommunity: userData.roleInCommunity || "member",
+        communityStatus: userData.communityStatus || "approved",
+        positionInCommunity: userData.positionInCommunity || "member",
+        occupation: userData.occupation || undefined,
+        gender: userData.gender || undefined,
+        religion: userData.religion || undefined,
+        motherTongue: userData.motherTongue || undefined,
+        interests: userData.interests || [],
+        cast: userData.cast || undefined,
+        fatherName: userData.fatherName || undefined,
+        pinCode: userData.pinCode || undefined,
+        alternativePhone: userData.alternativePhone || undefined,
+        maritalStatus: userData.maritalStatus || undefined,
+        gotra: userData.gotra || undefined,
+        subGotra: userData.subGotra || undefined,
+        profileImage: userData.profileImage || undefined,
+        community: communityId || undefined,
+        status: true, // Active by default
+        role: "user" // Regular user role
+      });
+
+      // Send welcome email with credentials
+      if (newUser.email || newUser.phone) {
+        try {
+          if (community) {
+            // Send email with community details and credentials
+            await emailService.sendCommunityAssignmentEmail(
+              newUser.email || newUser.phone,
+              newUser.firstName,
+              community.name,
+              newUser.email || newUser.phone,
+              temporaryPassword
+            );
+          } else {
+            // Send generic welcome email with credentials
+            await emailService.sendEmail(
+              newUser.email || newUser.phone,
+              'Welcome to KULL Platform - Your Account Details',
+              `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #28a745;">Welcome to KULL Platform!</h2>
+                  <p>Hello ${newUser.firstName},</p>
+                  <p>Your account has been created by the administrator. Below are your login credentials:</p>
+
+                  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="margin-top: 0;">🔐 Your Login Credentials</h3>
+                    <p><strong>Email/Phone:</strong> ${newUser.email || newUser.phone}</p>
+                    <p><strong>Temporary Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${temporaryPassword}</code></p>
+                  </div>
+
+                  <p>If you have any questions or need assistance, please contact our support team.</p>
+
+                  <hr style="border: none; border-top: 1px solid #e9ecef; margin: 30px 0;">
+                  <p style="color: #888; font-size: 14px; text-align: center;">© ${new Date().getFullYear()} KULL Platform. All rights reserved.</p>
+                </div>
+              `
+            );
+          }
+        } catch (emailError) {
+          console.error('Failed to send welcome email:', emailError);
+          // Continue even if email fails
+        }
+      }
+
+      // Remove password from response
+      const userResponse = newUser.toObject();
+      delete userResponse.password;
+
+      return res.status(201).json({
+        success: true,
+        message: "User created successfully. Welcome email sent with login credentials.",
+        user: userResponse,
+        credentials: {
+          loginIdentifier: newUser.email || newUser.phone,
+          temporaryPassword: temporaryPassword // Include in response for admin reference
+        }
+      });
+
+    } catch (err) {
+      if (err.code === 11000) {
+        // Handle duplicate key error
+        const field = Object.keys(err.keyPattern)[0];
+        return res.status(400).json({
+          success: false,
+          message: `${field} already exists`
+        });
+      }
+      next(err);
+    }
+  };
 }
 // Export a single instance
 module.exports = new CommunityController();

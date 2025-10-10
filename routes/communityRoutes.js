@@ -43,6 +43,15 @@ router.get("/:communityId/users", isAuthenticated, queryParser({
   maxLimit: 50
 }), communityController.getUsersByCommunityId);
 
+// Admin/SuperAdmin adds a new user to specific community with all details and sends credentials via email
+router.post(
+  "/:communityId/users",
+  isAuthenticated,
+  isSuperOrCommunityAdmin,
+  communityController.addUserByAdmin
+);
+
+
 // community configuration
 router.post("/:communityId/configuration", isAuthenticated, isSuperOrCommunityAdmin, communityController.createOrUpdateConfiguration);
 router.get("/:communityId/configuration", isAuthenticated, communityController.getConfigurationByCommunityId);

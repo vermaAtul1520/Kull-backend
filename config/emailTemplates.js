@@ -280,22 +280,22 @@ const emailTemplates = {
     headerSubtitle: 'Update on your community request',
     content: `
       <div class="status-badge status-danger">❌ Not Approved</div>
-      
+
       <div class="greeting">Hi {{firstName}},</div>
-      
+
       <div class="message">
         Thank you for your interest in joining <strong>{{communityName}}</strong>. After careful review, your join request was not approved at this time.
       </div>
-      
+
       <div class="info-box info">
         <h3>Reason provided:</h3>
         <p>{{rejectionReason}}</p>
       </div>
-      
+
       <div class="message">
         This decision doesn't prevent you from applying to other communities on our platform or reapplying to this community in the future if circumstances change.
       </div>
-      
+
       <div class="text-center">
         <a href="{{contactUrl}}" class="cta-button">Contact Support</a>
       </div>
@@ -305,6 +305,58 @@ const emailTemplates = {
       </div>
     `,
     footerText: 'Questions? Contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>'
+  },
+
+  communityAssignment: {
+    subject: 'Welcome to {{communityName}} - KULL Platform',
+    headerGradient: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+    primaryButtonColor: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+    accentColor: '#28a745',
+    headerIcon: '🎉',
+    headerTitle: 'Welcome to {{communityName}}!',
+    headerSubtitle: 'You have been added by the admin',
+    content: `
+      <div class="status-badge status-success">✅ Account Activated</div>
+
+      <div class="greeting">Hello {{firstName}}! 👋</div>
+
+      <div class="message">
+        Great news! You have been successfully added to <strong>{{communityName}}</strong> by the community administrator.
+        Your account is now active and ready to use.
+      </div>
+
+      <div class="highlight-box">
+        <div class="highlight-title">Community</div>
+        <div class="highlight-value" style="font-size: 18px; letter-spacing: normal;">{{communityName}}</div>
+      </div>
+
+      <div class="info-box warning">
+        <h3>🔐 Your Login Credentials</h3>
+        <p><strong>Email/Phone:</strong> {{loginIdentifier}}</p>
+        <p><strong>Temporary Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">{{temporaryPassword}}</code></p>
+        <p style="color: #856404; margin-top: 10px;"><strong>⚠️ Important:</strong> Please change your password after your first login for security purposes.</p>
+      </div>
+
+      <div class="text-center">
+        <a href="{{loginUrl}}" class="cta-button large">Login Now</a>
+      </div>
+
+      <div class="info-box info">
+        <h3>🚀 What you can do now:</h3>
+        <ul class="feature-list">
+          <li>Access all community content and resources</li>
+          <li>Connect with other community members</li>
+          <li>Participate in discussions and events</li>
+          <li>Update your profile and preferences</li>
+          <li>Receive community notifications</li>
+        </ul>
+      </div>
+
+      <div class="message">
+        If you have any questions or need assistance getting started, please don't hesitate to reach out to your community admin or our support team.
+      </div>
+    `,
+    footerText: 'Need help? Contact support at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>'
   }
 };
 
