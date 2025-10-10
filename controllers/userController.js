@@ -1,6 +1,9 @@
 const User = require("../models/User");
-const {Community} = require("../models/Community");
+const { Community } = require("../models/Community");
 const BaseController = require("../utils/baseController");
+const emailService = require("../services/emailService");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 
 
 const COMMUNITY_ADMIN_USERS_UPDATE_ALLOWED_FIELDS = ["communityStatus", "roleInCommunity", "status"];
@@ -11,55 +14,85 @@ class UserController extends BaseController {
   }
 
   updateUser = async (req, res, next) => {
-  try {
-    const { user } = req; // from isAuthenticated
-    const { userId } = req.params; // target user id
-    const updateData = req.body;
-    console.log("id...",userId,req.body)
+    try {
+      const { user } = req; // from isAuthenticated
+      const { userId } = req.params; // target user id
+      const updateData = req.body;
+      console.log("id...", userId, req.body)
 
-    // Find target user
-    const targetUser = await this.model.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Superadmin: full access
-    if (user.role === "superadmin") {
-      console.log("trueeeeeeeeeeeeeeee")
-      Object.assign(targetUser, updateData);
-      await targetUser.save();
-      return res.status(200).json({
-        success: true,
-        message: "User updated (superadmin)",
-        user: targetUser,
-      });
-    }
-
-    // Community admin: partial access
-    if (user.roleInCommunity === "admin" && String(user.community) === String(targetUser.community)) {
-      for (let key of Object.keys(updateData)) {
-        if (COMMUNITY_ADMIN_USERS_UPDATE_ALLOWED_FIELDS.includes(key)) {
-          targetUser[key] = updateData[key];
-        }
+      // Find target user and populate community
+      const targetUser = await this.model.findById(userId).populate('community', 'name');
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: "User not found" });
       }
-      await targetUser.save();
-      return res.status(200).json({
-        success: true,
-        message: "User updated (community admin)",
-        user: targetUser,
-      });
-    }
 
-    // Not authorized
-    return res.status(403).json({
-      success: false,
-      message: "Unauthorized to update this user",
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-  
+      // Track if communityStatus changed to 'approved'
+      const wasApproved = targetUser.communityStatus !== 'approved' && updateData.communityStatus === 'approved';
+
+      // Superadmin: full access
+      if (user.role === "superadmin") {
+        Object.assign(targetUser, updateData);
+        await targetUser.save();
+
+        // Send approval email if user was just approved
+        if (wasApproved && targetUser.community && (targetUser.email || targetUser.phone)) {
+          try {
+            await emailService.sendJoinApprovalEmail(
+              targetUser.email || targetUser.phone,
+              targetUser.firstName,
+              targetUser.community.name
+            );
+          } catch (emailError) {
+            console.error('Failed to send approval email:', emailError);
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "User updated (superadmin)",
+          user: targetUser,
+        });
+      }
+
+      // Community admin: partial access
+      if (user.roleInCommunity === "admin" && String(user.community) === String(targetUser.community)) {
+        for (let key of Object.keys(updateData)) {
+          if (COMMUNITY_ADMIN_USERS_UPDATE_ALLOWED_FIELDS.includes(key)) {
+            targetUser[key] = updateData[key];
+          }
+        }
+        await targetUser.save();
+
+        // Send approval email if user was just approved by community admin
+        if (wasApproved && targetUser.community && (targetUser.email || targetUser.phone)) {
+          try {
+            await emailService.sendJoinApprovalEmail(
+              targetUser.email || targetUser.phone,
+              targetUser.firstName,
+              targetUser.community.name
+            );
+          } catch (emailError) {
+            console.error('Failed to send approval email:', emailError);
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "User updated (community admin)",
+          user: targetUser,
+        });
+      }
+
+      // Not authorized
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized to update this user",
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
   // PUT /api/users/:userId/assign-community
   assignCommunityToUser = async (req, res) => {
     try {
@@ -92,12 +125,27 @@ class UserController extends BaseController {
       // Assign community
       userToUpdate.community = communityId;
       userToUpdate.communityStatus = "approved";
-      userToUpdate.status=true
+      userToUpdate.status = true;
       await userToUpdate.save();
+
+      // Send email notification with community details and login credentials
+      if (userToUpdate.email || userToUpdate.phone) {
+        try {
+          // Send simple approval email without credentials
+          await emailService.sendJoinApprovalEmail(
+            userToUpdate.email || userToUpdate.phone,
+            userToUpdate.firstName,
+            community.name
+          );
+        } catch (emailError) {
+          console.error('Failed to send community assignment email:', emailError);
+          // Don't fail the request if email fails
+        }
+      }
 
       return res.status(200).json({
         success: true,
-        message: "Community assigned successfully",
+        message: "Community assigned successfully. User has been notified via email.",
         user: {
           id: userToUpdate._id,
           name: `${userToUpdate.firstName} ${userToUpdate.lastName}`,
@@ -233,9 +281,9 @@ class UserController extends BaseController {
           { pinCode: searchRegex }
         ]
       })
-      .select('firstName lastName email phone address pinCode code gender occupation profileImage roleInCommunity gotra subGotra')
-      .sort({ firstName: 1 })
-      .lean();
+        .select('firstName lastName email phone address pinCode code gender occupation profileImage roleInCommunity gotra subGotra')
+        .sort({ firstName: 1 })
+        .lean();
 
       return res.status(200).json({
         success: true,
@@ -248,6 +296,8 @@ class UserController extends BaseController {
       next(err);
     }
   };
+
+  
 }
 
 module.exports = new UserController();
