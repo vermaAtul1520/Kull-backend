@@ -15,4 +15,6 @@ router.put("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.
 
 router.put("/:userId/assignCommunity", isAuthenticated, userController.assignCommunityToUser);
 
+router.delete("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.deleteUser);
+
 module.exports = router;
