@@ -1,53 +1,118 @@
 const Donation = require('../models/Donation');
 
-// Create donation
+// Create donation for a specific community
 exports.createDonation = async (req, res) => {
   try {
     const { role, roleInCommunity, community, id: userId } = req.user;
+    const { communityId } = req.params;
 
-    if (!(role === 'superadmin' || roleInCommunity === 'admin')) {
+    // Authorization: Community admin can only create for their community
+    if (roleInCommunity === 'admin' && community !== communityId) {
       return res.status(403).json({
-        message: "Only community admin or superadmin can create donations.",
+        success: false,
+        statusCode: 403,
+        message: "You can only create donations for your own community"
       });
     }
 
     const donation = new Donation({
       ...req.body,
-      community,
+      communityId: communityId,
       createdBy: userId,
     });
 
     const savedDonation = await donation.save();
-    res.status(201).json(savedDonation);
+    return res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: "Donation created successfully",
+      data: savedDonation
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error creating donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error creating donation", 
+      error: err.message 
+    });
   }
 };
 
-// Get all donations (superadmin sees all, others see only their community)
-exports.getAllDonations = async (req, res) => {
+// Get donations by community ID
+exports.getDonationsByCommunity = async (req, res) => {
   try {
-    const { role, community } = req.user;
+    const { role, roleInCommunity, community } = req.user;
+    const { communityId } = req.params;
 
-    // Build query filter
-    const filter = role === 'superadmin' 
-      ? {} 
-      : { communityId: community };
+    // Authorization: Community admin can only view their community's donations
+    if (roleInCommunity === 'admin' && community !== communityId) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only view donations from your own community"
+      });
+    }
 
-    const donations = await Donation.find(filter)
-      .populate("communityId", "name")       // assuming 'communityId' is the correct field in schema
-      .populate("createdBy", "name");        // if createdBy is stored in the document
+    const donations = await Donation.find({ communityId })
+      .populate("communityId", "name")
+      .populate("createdBy", "firstName lastName")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
+      statusCode: 200,
       data: donations
     });
 
   } catch (err) {
     return res.status(500).json({ 
       success: false,
+      statusCode: 500,
       message: "Error fetching donations", 
       error: err.message 
+    });
+  }
+};
+
+// Get single donation by ID
+exports.getDonationById = async (req, res) => {
+  try {
+    const { role, roleInCommunity, community } = req.user;
+    const { id } = req.params;
+
+    const donation = await Donation.findById(id)
+      .populate("communityId", "name")
+      .populate("createdBy", "firstName lastName");
+
+    if (!donation) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: "Donation not found"
+      });
+    }
+
+    // Authorization: Community admin can only view their community's donations
+    if (roleInCommunity === 'admin' && donation.communityId._id.toString() !== community) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only view donations from your own community"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      data: donation
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error fetching donation",
+      error: err.message
     });
   }
 };
@@ -60,23 +125,41 @@ exports.updateDonation = async (req, res) => {
 
     const donation = await Donation.findById(id);
     if (!donation) {
-      return res.status(404).json({ message: "Donation not found" });
+      return res.status(404).json({ 
+        success: false,
+        statusCode: 404,
+        message: "Donation not found" 
+      });
     }
 
     // Authorization check
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.community.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community;
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
-      return res.status(403).json({ message: "Not authorized to update this donation" });
+      return res.status(403).json({ 
+        success: false,
+        statusCode: 403,
+        message: "You can only update donations from your own community" 
+      });
     }
 
     Object.assign(donation, req.body);
     const updated = await donation.save();
 
-    res.status(200).json(updated);
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: "Donation updated successfully",
+      data: updated
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error updating donation", 
+      error: err.message 
+    });
   }
 };
 
@@ -88,19 +171,36 @@ exports.deleteDonation = async (req, res) => {
 
     const donation = await Donation.findById(id);
     if (!donation) {
-      return res.status(404).json({ message: "Donation not found" });
+      return res.status(404).json({ 
+        success: false,
+        statusCode: 404,
+        message: "Donation not found" 
+      });
     }
 
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.community.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community;
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
-      return res.status(403).json({ message: "Not authorized to delete this donation" });
+      return res.status(403).json({ 
+        success: false,
+        statusCode: 403,
+        message: "You can only delete donations from your own community" 
+      });
     }
 
     await donation.deleteOne();
-    res.status(200).json({ message: "Donation deleted successfully" });
+    return res.status(200).json({ 
+      success: true,
+      statusCode: 200,
+      message: "Donation deleted successfully" 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error deleting donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error deleting donation", 
+      error: err.message 
+    });
   }
 };

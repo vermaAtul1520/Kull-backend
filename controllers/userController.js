@@ -297,7 +297,65 @@ class UserController extends BaseController {
     }
   };
 
-  
+  // DELETE /api/users/:userId - Delete user permanently from database
+  deleteUser = async (req, res, next) => {
+    try {
+      const { user: adminUser } = req; // from isAuthenticated middleware
+      const { userId } = req.params;
+
+      // Authorization check - only superadmin or community admin can delete users
+      if (adminUser.role !== "superadmin" && adminUser.roleInCommunity !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Only superadmin or community admin can delete users"
+        });
+      }
+
+      // Find the user to be deleted
+      const userToDelete = await User.findById(userId);
+      if (!userToDelete) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+
+      // If community admin, verify they can only delete users from their own community
+      if (adminUser.roleInCommunity === "admin" && adminUser.role !== "superadmin") {
+        if (!userToDelete.community || userToDelete.community.toString() !== adminUser.community.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: You can only delete users from your own community"
+          });
+        }
+      }
+
+      // Prevent deleting yourself
+      if (userToDelete._id.toString() === adminUser.id.toString()) {
+        return res.status(400).json({
+          success: false,
+          message: "You cannot delete yourself"
+        });
+      }
+
+      // Delete the user permanently
+      await User.findByIdAndDelete(userId);
+
+      return res.status(200).json({
+        success: true,
+        message: `User ${userToDelete.firstName} ${userToDelete.lastName} has been permanently deleted`,
+        data: {
+          userId: userToDelete._id,
+          userName: `${userToDelete.firstName} ${userToDelete.lastName}`
+        }
+      });
+
+    } catch (err) {
+      next(err);
+    }
+  };
+
+
 }
 
 module.exports = new UserController();

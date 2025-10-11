@@ -4,13 +4,21 @@ const fs = require('fs').promises;
 const path = require('path');
 const emailTemplates = require('../config/emailTemplates');
 
-// Determine which email service to use
-const USE_SENDGRID = process.env.USE_SENDGRID === 'true' && process.env.SENDGRID_API_KEY;
-const USE_NODEMAILER = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+// Fallback credentials (hardcoded)
+const FALLBACK_EMAIL_USER = 'vermaak1234987@gmail.com';
+const FALLBACK_EMAIL_PASS = 'gfpporoujbbzgutc';
+
+// Determine which email service to use with fallbacks
+const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
+const EMAIL_USER = process.env.EMAIL_USER || FALLBACK_EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS || FALLBACK_EMAIL_PASS;
+
+const USE_SENDGRID = process.env.USE_SENDGRID
+const USE_NODEMAILER = EMAIL_USER && EMAIL_PASS;
 
 // Initialize SendGrid (if enabled and configured)
 if (USE_SENDGRID) {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    sgMail.setApiKey(SENDGRID_KEY);
     console.log('✅ Email Service: SendGrid initialized');
 }
 
@@ -20,8 +28,8 @@ if (USE_NODEMAILER) {
     nodemailerTransporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
+            user: EMAIL_USER,
+            pass: EMAIL_PASS
         }
     });
     console.log('✅ Email Service: Nodemailer (Gmail) initialized');
@@ -140,7 +148,7 @@ const sendEmail = async (to, subject, html, text = null) => {
     if (USE_NODEMAILER) {
         try {
             const mailOptions = {
-                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${process.env.EMAIL_USER}>`,
+                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
                 to: to,
                 subject: subject,
                 html: html,

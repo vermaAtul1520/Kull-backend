@@ -7,7 +7,7 @@ const EducationResourceSchema = new mongoose.Schema(
     description: { type: String },
     type: {
       type: String,
-      enum: ["class_link", "course_material", "guidance"],
+      enum: ["class_link", "document", "video", "ebook"],
       required: true,
     },
     category: { type: String },

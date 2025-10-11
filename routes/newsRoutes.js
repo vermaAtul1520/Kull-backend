@@ -11,19 +11,19 @@ const {
 const isAuthenticated = require("../middleware/isAuthenticated");
 const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
-// Create news
-router.post("/", isAuthenticated, isSuperOrCommunityAdmin, createNews);
+// Get news by community ID
+router.get("/community/:communityId", isAuthenticated, getCommunityNews);
+
+// Create news for a specific community
+router.post("/community/:communityId", isAuthenticated, isSuperOrCommunityAdmin, createNews);
+
+// Get single news by ID
+router.get("/:id", isAuthenticated, getSingleNews);
 
 // Update news
 router.put("/:id", isAuthenticated, isSuperOrCommunityAdmin, updateNews);
 
 // Delete news
 router.delete("/:id", isAuthenticated, isSuperOrCommunityAdmin, deleteNews);
-
-// Get all news for community
-router.get("/", isAuthenticated, getCommunityNews);
-
-// Get single news
-router.get("/:id", isAuthenticated, getSingleNews);
 
 module.exports = router;

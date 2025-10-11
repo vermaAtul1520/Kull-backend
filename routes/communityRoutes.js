@@ -20,6 +20,10 @@ router.get(
   }),
   communityController.listCommunities
 );
+
+// YouTube video info (must be before /:id route to avoid conflict)
+router.get("/video-info", bhajanController.fetchYoutubeVideoInfo);
+
 router.get(
   "/:id",
   isAuthenticated,
