@@ -7,7 +7,9 @@ exports.createDonation = async (req, res) => {
 
     if (!(role === 'superadmin' || roleInCommunity === 'admin')) {
       return res.status(403).json({
-        message: "Only community admin or superadmin can create donations.",
+        success: false,
+        statusCode: 403,
+        message: "Only community admin or superadmin can create donations."
       });
     }
 
@@ -18,9 +20,19 @@ exports.createDonation = async (req, res) => {
     });
 
     const savedDonation = await donation.save();
-    res.status(201).json(savedDonation);
+    return res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: "Donation created successfully",
+      data: savedDonation
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error creating donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error creating donation", 
+      error: err.message 
+    });
   }
 };
 
@@ -40,12 +52,14 @@ exports.getAllDonations = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      statusCode: 200,
       data: donations
     });
 
   } catch (err) {
     return res.status(500).json({ 
       success: false,
+      statusCode: 500,
       message: "Error fetching donations", 
       error: err.message 
     });
@@ -60,7 +74,11 @@ exports.updateDonation = async (req, res) => {
 
     const donation = await Donation.findById(id);
     if (!donation) {
-      return res.status(404).json({ message: "Donation not found" });
+      return res.status(404).json({ 
+        success: false,
+        statusCode: 404,
+        message: "Donation not found" 
+      });
     }
 
     // Authorization check
@@ -68,15 +86,29 @@ exports.updateDonation = async (req, res) => {
     const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.community.toString() === community;
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
-      return res.status(403).json({ message: "Not authorized to update this donation" });
+      return res.status(403).json({ 
+        success: false,
+        statusCode: 403,
+        message: "Not authorized to update this donation" 
+      });
     }
 
     Object.assign(donation, req.body);
     const updated = await donation.save();
 
-    res.status(200).json(updated);
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: "Donation updated successfully",
+      data: updated
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error updating donation", 
+      error: err.message 
+    });
   }
 };
 
@@ -88,19 +120,36 @@ exports.deleteDonation = async (req, res) => {
 
     const donation = await Donation.findById(id);
     if (!donation) {
-      return res.status(404).json({ message: "Donation not found" });
+      return res.status(404).json({ 
+        success: false,
+        statusCode: 404,
+        message: "Donation not found" 
+      });
     }
 
     const isSuperAdmin = role === 'superadmin';
     const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.community.toString() === community;
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
-      return res.status(403).json({ message: "Not authorized to delete this donation" });
+      return res.status(403).json({ 
+        success: false,
+        statusCode: 403,
+        message: "Not authorized to delete this donation" 
+      });
     }
 
     await donation.deleteOne();
-    res.status(200).json({ message: "Donation deleted successfully" });
+    return res.status(200).json({ 
+      success: true,
+      statusCode: 200,
+      message: "Donation deleted successfully" 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error deleting donation", error: err.message });
+    return res.status(500).json({ 
+      success: false,
+      statusCode: 500,
+      message: "Error deleting donation", 
+      error: err.message 
+    });
   }
 };
