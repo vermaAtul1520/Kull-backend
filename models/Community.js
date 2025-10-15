@@ -89,7 +89,12 @@ const communityConfigurationSchema = new mongoose.Schema({
         visible: { type: Boolean, default: true },
         label: { type: String, default: "Vote" },
         labelHindi: { type: String, default: "मतदान" }
-      }
+      },
+      familyTree: {
+        visible: { type: Boolean, default: true },
+        label: { type: String, default: "Family Tree" },
+        labelHindi: { type: String, default: "वंश वृक्ष" }
+      },
     },
     default: {
       occasions: { visible: true, label: "Occasions", labelHindi: "अवसर" },
@@ -104,7 +109,8 @@ const communityConfigurationSchema = new mongoose.Schema({
       dukan: { visible: true, label: "Dukan", labelHindi: "दुकान" },
       meetings: { visible: true, label: "Meetings", labelHindi: "बैठकें" },
       appeal: { visible: true, label: "Appeal", labelHindi: "अपील" },
-      vote: { visible: true, label: "Vote", labelHindi: "मतदान" }
+      vote: { visible: true, label: "Vote", labelHindi: "मतदान" },
+      family: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" },
     }
   },
   // gotra with embedded subgotra configuration

@@ -3,10 +3,19 @@ const router = express.Router();
 const postController = require("../controllers/postController");
 const isAuthenticated = require("../middleware/isAuthenticated");
 
-// posts
-router.get("/", isAuthenticated,postController.getAllPosts);
-router.post("/", isAuthenticated, postController.createPost);
+// Get posts by community ID
+router.get("/community/:communityId", isAuthenticated, postController.getPostsByCommunity);
+
+// Create post for a specific community
+router.post("/community/:communityId", isAuthenticated, postController.createPost);
+
+// Get single post by ID
+router.get("/:id", isAuthenticated, postController.getSinglePost);
+
+// Update post
 router.put("/:id", isAuthenticated, postController.updatePost);
+
+// Delete post
 router.delete("/:id", isAuthenticated, postController.deletePost);
 
 // likes

@@ -2,16 +2,21 @@ const express = require("express");
 const router = express.Router();
 const donationController = require("../controllers/donationController");
 const isAuthenticated = require("../middleware/isAuthenticated");
+const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
-router.get("/", isAuthenticated,donationController.getAllDonations);
+// Get donations by community ID
+router.get("/community/:communityId", isAuthenticated, donationController.getDonationsByCommunity);
 
-// Only superadmin or communityAdmin can create donation
-router.post("/", isAuthenticated, donationController.createDonation);
+// Create donation for a specific community
+router.post("/community/:communityId", isAuthenticated, isSuperOrCommunityAdmin, donationController.createDonation);
 
-// Edit own donation (superadmin can edit all)
-router.put("/:id", isAuthenticated, donationController.updateDonation);
+// Get single donation by ID
+router.get("/:id", isAuthenticated, donationController.getDonationById);
 
-// Delete own donation (soft delete optional)
-router.delete("/:id", isAuthenticated, donationController.deleteDonation);
+// Update donation
+router.put("/:id", isAuthenticated, isSuperOrCommunityAdmin, donationController.updateDonation);
+
+// Delete donation
+router.delete("/:id", isAuthenticated, isSuperOrCommunityAdmin, donationController.deleteDonation);
 
 module.exports = router;

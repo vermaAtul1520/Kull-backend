@@ -43,6 +43,91 @@ class CommunityBhajansController extends BaseController {
     }
   };
 
+  // Fetch YouTube video info
+  fetchYoutubeVideoInfo = async (req, res) => {
+    try {
+      const { url } = req.query;
+      
+      if (!url) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: "URL query parameter is required"
+        });
+      }
+      
+      // Extract video ID from YouTube URL
+      const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+      const match = url.match(regExp);
+      const videoId = (match && match[7].length === 11) ? match[7] : null;
+      
+      if (!videoId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: "Invalid YouTube URL"
+        });
+      }
+
+      // Call YouTube Data API
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          success: false,
+          statusCode: 500,
+          message: "YouTube API key not configured"
+        });
+      }
+
+      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+      const response = await fetch(apiUrl);
+      console.log("response: ", response);
+      
+      if (!response.ok) {
+        throw new Error(`YouTube API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.items || data.items.length === 0) {
+        return res.status(404).json({
+          success: false,
+          statusCode: 404,
+          message: "Video not found"
+        });
+      }
+
+      const videoInfo = {
+        title: data.items[0].snippet.title,
+        description: data.items[0].snippet.description,
+        thumbnails: {
+          default: data.items[0].snippet.thumbnails.default?.url,
+          medium: data.items[0].snippet.thumbnails.medium?.url,
+          high: data.items[0].snippet.thumbnails.high?.url,
+          standard: data.items[0].snippet.thumbnails.standard?.url,
+          maxres: data.items[0].snippet.thumbnails.maxres?.url
+        },
+        channelTitle: data.items[0].snippet.channelTitle,
+        publishedAt: data.items[0].snippet.publishedAt
+      };
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        data: videoInfo
+      });
+    } catch (err) {
+      console.error('Failed to extract YouTube video details:', err);
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        message: "Failed to fetch YouTube video details",
+        error: err.message
+      });
+    }
+  };
+
+
   // Get all Bhajans for a Community (with pagination/filter/sort via BaseController)
   getBhajansByCommunity = async (req, res, next) => {
     try {

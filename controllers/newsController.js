@@ -1,86 +1,210 @@
 const News = require("../models/News");
 
-// Create News (only superadmin or community admin)
+// Create News for a specific community
 exports.createNews = async (req, res, next) => {
   try {
     const { title, content, category, tags, imageUrl } = req.body;
+    const { communityId } = req.params;
+    const { role, roleInCommunity, community } = req.user;
+
+    // Authorization: Community admin can only create for their community
+    if (roleInCommunity === 'admin' && community !== communityId) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only create news for your own community"
+      });
+    }
    
     const news = new News({
       title,
       content,
       category,
       tags,
-      community:req.user.community,
+      community: communityId,
       imageUrl,
       author: req.user.id
     });
 
     await news.save();
-    res.status(201).json({ success: true, data: news });
+    return res.status(201).json({ 
+      success: true, 
+      statusCode: 201,
+      message: "News created successfully",
+      data: news 
+    });
   } catch (err) {
-    next(err);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error creating news",
+      error: err.message
+    });
   }
 };
 
-// Update News (only superadmin or community admin)
+// Update News
 exports.updateNews = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { role, roleInCommunity, community } = req.user;
 
     const news = await News.findById(id);
-    if (!news) return res.status(404).json({ success: false, message: "News not found" });
+    if (!news) {
+      return res.status(404).json({ 
+        success: false, 
+        statusCode: 404,
+        message: "News not found" 
+      });
+    }
+
+    // Authorization: Community admin can only update their community's news
+    const isSuperAdmin = role === 'superadmin';
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community;
+
+    if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only update news from your own community"
+      });
+    }
 
     Object.assign(news, req.body);
     await news.save();
 
-    res.json({ success: true, data: news });
+    return res.status(200).json({ 
+      success: true, 
+      statusCode: 200,
+      message: "News updated successfully",
+      data: news 
+    });
   } catch (err) {
-    next(err);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error updating news",
+      error: err.message
+    });
   }
 };
 
-// Delete News (only superadmin or community admin)
+// Delete News
 exports.deleteNews = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { role, roleInCommunity, community } = req.user;
+
     const news = await News.findById(id);
-    if (!news) return res.status(404).json({ success: false, message: "News not found" });
+    if (!news) {
+      return res.status(404).json({ 
+        success: false, 
+        statusCode: 404,
+        message: "News not found" 
+      });
+    }
+
+    // Authorization: Community admin can only delete their community's news
+    const isSuperAdmin = role === 'superadmin';
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community;
+
+    if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only delete news from your own community"
+      });
+    }
 
     await news.deleteOne();
-    res.json({ success: true, message: "News deleted successfully" });
+    return res.status(200).json({ 
+      success: true, 
+      statusCode: 200,
+      message: "News deleted successfully" 
+    });
   } catch (err) {
-    next(err);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error deleting news",
+      error: err.message
+    });
   }
 };
 
-// Get all news for logged-in user's community
+// Get news by community ID
 exports.getCommunityNews = async (req, res, next) => {
   try {
-    const communityId = req.user.community; // from authenticated user
-    console.log("cccccccccccc",communityId)
+    const { communityId } = req.params;
+    const { role, roleInCommunity, community } = req.user;
+
+    // Authorization: Community admin can only view their community's news
+    if (roleInCommunity === 'admin' && community !== communityId) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only view news from your own community"
+      });
+    }
+
     const newsList = await News.find({ community: communityId })
       .populate("author", "firstName lastName email")
       .populate("community", "name")
-      .sort({ createdAt: -1 }); // recent first
+      .sort({ createdAt: -1 });
 
-    res.json({ success: true, data: newsList });
+    return res.status(200).json({ 
+      success: true, 
+      statusCode: 200,
+      data: newsList 
+    });
   } catch (err) {
-    next(err);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error fetching news",
+      error: err.message
+    });
   }
 };
 
-// Get single news (only from user's community)
+// Get single news by ID
 exports.getSingleNews = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const news = await News.findOne({ _id: id, community: req.user.community })
+    const { role, roleInCommunity, community } = req.user;
+
+    const news = await News.findById(id)
       .populate("author", "firstName lastName email")
       .populate("community", "name");
 
-    if (!news) return res.status(404).json({ success: false, message: "News not found" });
+    if (!news) {
+      return res.status(404).json({ 
+        success: false, 
+        statusCode: 404,
+        message: "News not found" 
+      });
+    }
 
-    res.json({ success: true, data: news });
+    // Authorization: Community admin can only view their community's news
+    if (roleInCommunity === 'admin' && news.community._id.toString() !== community) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only view news from your own community"
+      });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      statusCode: 200,
+      data: news 
+    });
   } catch (err) {
-    next(err);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error fetching news",
+      error: err.message
+    });
   }
 };
