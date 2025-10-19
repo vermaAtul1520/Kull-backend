@@ -40,9 +40,10 @@ class JobPostController extends BaseController {
           community: req.user.community,
         };
       } else if (!req.user.isSuperAdmin) {
+        // Regular users see all job posts in their community
         req.parsedQuery.filter = {
           ...req.parsedQuery.filter,
-          createdBy: req.user.id,
+          community: req.user.community,
         };
       }
       return this.getAll(req, res, next);

@@ -281,7 +281,6 @@ class CommunityController extends BaseController {
       // For superadmin: use communityId from URL parameter
       if (adminUser.role === "superadmin") {
         communityId = req.params.communityId;
-        console.log('SuperAdmin creating user - communityId from URL:', communityId);
         community = await Community.findById(communityId);
 
         if (!community) {
@@ -290,7 +289,6 @@ class CommunityController extends BaseController {
             message: "Community not found"
           });
         }
-        console.log('Community found:', community.name);
       }
       // For community admin: use their assigned community
       else if (adminUser.roleInCommunity === "admin" && adminUser.community) {
@@ -306,7 +304,7 @@ class CommunityController extends BaseController {
         });
       }
 
-      console.log('Final communityId before user creation:', communityId);
+
 
       // Create new user
       const newUser = await User.create({
