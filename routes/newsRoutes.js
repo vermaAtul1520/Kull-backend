@@ -5,11 +5,15 @@ const {
   updateNews,
   deleteNews,
   getCommunityNews,
-  getSingleNews
+  getSingleNews,
+  getNewsHeadlines
 } = require("../controllers/newsController");
 
 const isAuthenticated = require("../middleware/isAuthenticated");
 const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
+
+// Get news headlines for slider (Issue #18 fix)
+router.get("/community/:communityId/headlines", isAuthenticated, getNewsHeadlines);
 
 // Get news by community ID
 router.get("/community/:communityId", isAuthenticated, getCommunityNews);

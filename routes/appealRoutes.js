@@ -7,8 +7,8 @@ const { queryParser } = require("../middleware/queryParser");
 const appealController = require("../controllers/appealController");
 const isSuperOrCommunityAdmin = require("../middleware/isSuperOrCommunityAdmin");
 
-// Create
-router.post("/", isAuthenticated, isSuperOrCommunityAdmin, appealController.createAppeal);
+// Create - Issue #23 fix: Allow all authenticated users to submit appeals
+router.post("/", isAuthenticated, appealController.createAppeal);
 
 // List with queryParser
 router.get(

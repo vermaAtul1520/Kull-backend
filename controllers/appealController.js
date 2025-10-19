@@ -6,12 +6,19 @@ class AppealController extends BaseController {
     super(Appeal);
   }
 
-  // Create Appeal
+  // Create Appeal - Issue #23 fix
   createAppeal = async (req, res, next) => {
     try {
+      // Check if user has a community
+      if (!req.user.community && !req.user.isSuperAdmin) {
+        return res.status(400).json({
+          success: false,
+          message: "You must belong to a community to submit an appeal",
+        });
+      }
 
       // If superadmin, community must be passed explicitly
-       if (req.user.isSuperAdmin) {
+      if (req.user.isSuperAdmin) {
         if (!req.body.community) {
           return res.status(400).json({
             success: false,
@@ -20,20 +27,25 @@ class AppealController extends BaseController {
         }
         // user (creator) can be provided, but fallback to superadmin's own id
         req.body.user = req.body.user || req.user.id;
-      }else{
+      } else {
+        // Regular users and community admins
         req.body.community = req.user.community; // lock to own community
-        req.body.createdBy = req.user.id;
+        req.body.user = req.user.id; // Set the user who created the appeal
       }
 
       const appeal = await this.model.create(req.body);
-      res.status(201).json({ success: true, data: appeal });
+      res.status(201).json({ 
+        success: true, 
+        message: "Appeal submitted successfully",
+        data: appeal 
+      });
     } catch (err) {
       next(err);
     }
   };
 
-  // Get all Appeals
-  getAllAppeal = async (req, res, next) => {
+  // Get all Appeals (alias for compatibility)
+  getAll = async (req, res, next) => {
     try {
         // Inject role-based restrictions into queryParser filter
         if (req.user.isCommunityAdmin) {
@@ -49,12 +61,16 @@ class AppealController extends BaseController {
         }
         // Superadmin → no restrictions
 
-        // Delegate to BaseController
-        return this.getAll(req, res, next);
+        // Use the inherited getAll method directly
+        const { filter, sort, projection, skip, limit, page } = req.parsedQuery;
+        const docs = await this.model.find(filter).select(projection || "").sort(sort).skip(skip).limit(limit);
+        const total = await this.model.countDocuments(filter);
+
+        res.status(200).json({ success: true, total, page, limit, count: docs.length, data: docs });
     } catch (err) {
         next(err);
     }
-};  
+  };
 
   // Get single Appeal
   getAppeal = async (req, res, next) => {

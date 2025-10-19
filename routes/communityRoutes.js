@@ -43,7 +43,13 @@ router.get("/:communityId/users", isAuthenticated, queryParser({
     "positionInCommunity","cast","cGotNo","gotra","subGotra","gender","communityStatus"
   ],
   allowSortFields: ["firstName", "email", "createdAt"],
-  allowProjectFields: ["firstName", "email", "role", "createdAt"],
+  allowProjectFields: [
+    "firstName", "lastName", "email", "phone", "role", "roleInCommunity",
+    "status", "positionInCommunity", "cast", "cGotNo", "gotra", "subGotra",
+    "gender", "communityStatus", "createdAt", "updatedAt", "address",
+    "occupation", "religion", "motherTongue", "fatherName", "pinCode",
+    "alternativePhone", "maritalStatus", "profileImage", "plainTextPassword"
+  ],
   maxLimit: 50
 }), communityController.getUsersByCommunityId);
 

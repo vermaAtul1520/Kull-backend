@@ -9,6 +9,9 @@ router.get("/pending",isAuthenticated, userController.getPendingUsers);
 
 router.get("/city-search", isAuthenticated, userController.citySearch);
 
+// Family tree search (Issue #17 fix)
+router.get("/family-tree/search", isAuthenticated, userController.familyTreeSearch);
+
 router.put("/profile", isAuthenticated, userController.updateOwnProfile);
 
 router.put("/:userId", isAuthenticated, isSuperOrCommunityAdmin, userController.updateUser);
