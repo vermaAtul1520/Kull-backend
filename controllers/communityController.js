@@ -126,14 +126,50 @@ class CommunityController extends BaseController {
     }
   };
 
-  // BaseController-powered method for users in a community
+  // Custom method for users in a community
   getUsersByCommunityId = async (req, res, next) => {
     try {
       const { communityId } = req.params;
-      req.parsedQuery.filter = { ...(req.parsedQuery.filter || {}), community: communityId };
-      // Use BaseController's getAll logic
-      const userController = new BaseController(User);
-      return userController.getAll(req, res, next);
+      const { filter, sort, projection, skip, limit, page } = req.parsedQuery;
+      const { user: requestingUser } = req; // from isAuthenticated middleware
+
+      // Add community filter
+      const finalFilter = { ...(filter || {}), community: communityId };
+
+      // Build selection string - include plain text password for admin users
+      let selectFields = projection || "";
+      if (requestingUser.role === "superadmin" || requestingUser.roleInCommunity === "admin") {
+        selectFields += " +plainTextPassword"; // Include plain text password field for admins
+      }
+
+      // Fetch users
+      const users = await User.find(finalFilter)
+        .select(selectFields)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit);
+
+      const total = await User.countDocuments(finalFilter);
+
+      // Convert to plain objects for response
+      const usersData = users.map(user => {
+        const userObj = user.toObject();
+        // Rename plainTextPassword to password for cleaner API response
+        if (userObj.plainTextPassword) {
+          userObj.password = userObj.plainTextPassword;
+          delete userObj.plainTextPassword;
+        }
+        return userObj;
+      });
+
+      res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: usersData.length,
+        data: usersData
+      });
     } catch (err) {
       next(err);
     }
@@ -210,6 +246,13 @@ class CommunityController extends BaseController {
         });
       }
 
+      if (!userData.password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required"
+        });
+      }
+
       // Check if user already exists
       const existingUser = await User.findOne({
         $or: [
@@ -218,6 +261,8 @@ class CommunityController extends BaseController {
         ]
       });
 
+      console.log('existingUser: ', existingUser);
+
       if (existingUser) {
         return res.status(400).json({
           success: false,
@@ -225,19 +270,43 @@ class CommunityController extends BaseController {
         });
       }
 
-      // Generate a temporary password
-      const temporaryPassword = crypto.randomBytes(8).toString('hex'); // 16-character random password
-      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+      // Use password from payload and encrypt it for admin viewing
+      const plainPassword = userData.password;
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
       // Get community information
       let community = null;
       let communityId = null;
 
-      // If community admin is adding user, use their community
-      if (adminUser.roleInCommunity === "admin" && adminUser.community) {
+      // For superadmin: use communityId from URL parameter
+      if (adminUser.role === "superadmin") {
+        communityId = req.params.communityId;
+        console.log('SuperAdmin creating user - communityId from URL:', communityId);
+        community = await Community.findById(communityId);
+
+        if (!community) {
+          return res.status(404).json({
+            success: false,
+            message: "Community not found"
+          });
+        }
+        console.log('Community found:', community.name);
+      }
+      // For community admin: use their assigned community
+      else if (adminUser.roleInCommunity === "admin" && adminUser.community) {
         communityId = adminUser.community;
         community = await Community.findById(communityId);
       }
+
+      // Ensure community is assigned
+      if (!communityId) {
+        return res.status(400).json({
+          success: false,
+          message: "Community assignment is required. Please specify a valid community."
+        });
+      }
+
+      console.log('Final communityId before user creation:', communityId);
 
       // Create new user
       const newUser = await User.create({
@@ -246,6 +315,7 @@ class CommunityController extends BaseController {
         email: userData.email || undefined,
         phone: userData.phone || undefined,
         password: hashedPassword,
+        plainTextPassword: plainPassword, // Store plain text for admin viewing
         cGotNo: userData.cGotNo || undefined,
         address: userData.address || undefined,
         roleInCommunity: userData.roleInCommunity || "member",
@@ -279,7 +349,7 @@ class CommunityController extends BaseController {
               newUser.firstName,
               community.name,
               newUser.email || newUser.phone,
-              temporaryPassword
+              plainPassword
             );
           } else {
             // Send generic welcome email with credentials
@@ -295,7 +365,7 @@ class CommunityController extends BaseController {
                   <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <h3 style="margin-top: 0;">🔐 Your Login Credentials</h3>
                     <p><strong>Email/Phone:</strong> ${newUser.email || newUser.phone}</p>
-                    <p><strong>Temporary Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${temporaryPassword}</code></p>
+                    <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${plainPassword}</code></p>
                   </div>
 
                   <p>If you have any questions or need assistance, please contact our support team.</p>
@@ -322,7 +392,7 @@ class CommunityController extends BaseController {
         user: userResponse,
         credentials: {
           loginIdentifier: newUser.email || newUser.phone,
-          temporaryPassword: temporaryPassword // Include in response for admin reference
+          password: plainPassword
         }
       });
 

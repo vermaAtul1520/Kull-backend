@@ -47,6 +47,16 @@ const userSchema = new mongoose.Schema({
     minlength: 3,
     select: false,
   },
+  // Plain text password for admin viewing (temporary storage)
+  // Note: This is not secure for production - consider encryption
+  plainTextPassword: {
+    type: String,
+    select: false, // Don't include by default
+  },
+  encryptedPassword: {
+    type: String,
+    select: false, // Only selected when explicitly requested by admin
+  },
   role: {
     type: String,
     enum: ["user", "admin", "superadmin"],

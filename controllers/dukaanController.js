@@ -35,15 +35,21 @@ class DukaanController extends BaseController {
   // Get all Dukaans
   getAllDukaans = async (req, res, next) => {
     try {
-      if (req.user.isCommunityAdmin) {
+      if (req.user.isSuperAdmin) {
+        // SuperAdmin: can see all dukaans across all communities
+        // No additional filter needed
+      } else {
+        // Community Admin and Regular Users: see all dukaans in their community
+        if (!req.user.community) {
+          return res.status(403).json({
+            success: false,
+            message: "Community access is required to view dukaans",
+          });
+        }
+
         req.parsedQuery.filter = {
           ...req.parsedQuery.filter,
           community: req.user.community,
-        };
-      } else if (!req.user.isSuperAdmin) {
-        req.parsedQuery.filter = {
-          ...req.parsedQuery.filter,
-          createdBy: req.user.id,
         };
       }
       return this.getAll(req, res, next);
@@ -62,18 +68,26 @@ class DukaanController extends BaseController {
   };
 
   // Update Dukaan
-  updateDukaan = (req, res, next) => {
+  updateDukaan = async (req, res, next) => {
     try {
-        // Restriction logic
-        if (!req.user.isSuperAdmin) {
-        // Community admin or normal user
-            if (dukaan.community.toString() !== req.user.community.toString()) {
-                return res.status(403).json({
-                success: false,
-                message: "Not authorized to update Dukaan outside your community",
-                });
-            }
+      // Restriction logic
+      if (!req.user.isSuperAdmin) {
+        // Community admin or normal user - check if dukaan belongs to their community
+        const dukaan = await this.model.findById(req.params.id);
+        if (!dukaan) {
+          return res.status(404).json({
+            success: false,
+            message: "Dukaan not found",
+          });
         }
+
+        if (dukaan.community.toString() !== req.user.community.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: "Not authorized to update Dukaan outside your community",
+          });
+        }
+      }
       return this.updateOne(req, res, next);
     } catch (err) {
       next(err);
@@ -81,18 +95,26 @@ class DukaanController extends BaseController {
   };
 
   // Delete Dukaan
-  deleteDukaan = (req, res, next) => {
+  deleteDukaan = async (req, res, next) => {
     try {
-        // Restriction logic
-        if (!req.user.isSuperAdmin) {
-            // Community admin or normal user
-            if (dukaan.community.toString() !== req.user.community.toString()) {
-                return res.status(403).json({
-                success: false,
-                message: "Not authorized to delete Dukaan outside your community",
-                });
-            }
+      // Restriction logic
+      if (!req.user.isSuperAdmin) {
+        // Community admin or normal user - check if dukaan belongs to their community
+        const dukaan = await this.model.findById(req.params.id);
+        if (!dukaan) {
+          return res.status(404).json({
+            success: false,
+            message: "Dukaan not found",
+          });
         }
+
+        if (dukaan.community.toString() !== req.user.community.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: "Not authorized to delete Dukaan outside your community",
+          });
+        }
+      }
       return this.deleteOne(req, res, next);
     } catch (err) {
       next(err);

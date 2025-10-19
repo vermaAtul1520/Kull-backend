@@ -178,7 +178,7 @@ class UserController extends BaseController {
 
       const pendingUsers = await this.model.find(query)
         .populate('community', 'name code')
-        .select('-password')
+        .select('-password') // Exclude hashed password
         .sort({ createdAt: -1 });
 
       return res.status(200).json({
@@ -348,6 +348,70 @@ class UserController extends BaseController {
           userId: userToDelete._id,
           userName: `${userToDelete.firstName} ${userToDelete.lastName}`
         }
+      });
+
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // GET /api/users/family-tree/search - Search family tree members (Issue #17 fix)
+  familyTreeSearch = async (req, res, next) => {
+    try {
+      const { user } = req; // from isAuthenticated middleware
+      const { q, communityId, gotra, subGotra, limit = 50 } = req.query;
+
+      // Validate query parameter
+      if (!q || q.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Search query (q) is required"
+        });
+      }
+
+      // Determine community to search in
+      let searchCommunity = communityId || user.community;
+      if (!searchCommunity) {
+        return res.status(403).json({
+          success: false,
+          message: "Community ID is required for search"
+        });
+      }
+
+      // Build search query
+      const searchRegex = new RegExp(q.trim(), 'i');
+      const searchQuery = {
+        community: searchCommunity,
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { phone: searchRegex },
+          { code: searchRegex }, // User code
+          { cGotNo: searchRegex }, // Code/Gotra Number
+        ]
+      };
+
+      // Add optional filters
+      if (gotra) {
+        searchQuery.gotra = gotra;
+      }
+      if (subGotra) {
+        searchQuery.subGotra = subGotra;
+      }
+
+      // Execute search with indexed fields for performance
+      const results = await this.model.find(searchQuery)
+        .select('firstName lastName email phone code cGotNo gender occupation profileImage gotra subGotra fatherName address pinCode maritalStatus roleInCommunity createdAt')
+        .limit(parseInt(limit))
+        .sort({ firstName: 1, lastName: 1 })
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        message: "Family tree search completed",
+        count: results.length,
+        results: results
       });
 
     } catch (err) {

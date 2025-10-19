@@ -208,3 +208,45 @@ exports.getSingleNews = async (req, res, next) => {
     });
   }
 };
+
+// Get news headlines for homepage slider (Issue #18 fix)
+exports.getNewsHeadlines = async (req, res, next) => {
+  try {
+    const { communityId } = req.params;
+    const { role, roleInCommunity, community } = req.user;
+    const limit = parseInt(req.query.limit) || 5;
+
+    // Authorization: Community admin can only view their community's news
+    if (roleInCommunity === 'admin' && community !== communityId) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: "You can only view news from your own community"
+      });
+    }
+
+    const headlines = await News.find({ community: communityId })
+      .select('title imageUrl createdAt _id')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return res.status(200).json({ 
+      success: true, 
+      statusCode: 200,
+      headlines: headlines.map(news => ({
+        id: news._id,
+        title: news.title,
+        image: news.imageUrl,
+        createdAt: news.createdAt
+      }))
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: "Error fetching news headlines",
+      error: err.message
+    });
+  }
+};
