@@ -8,7 +8,7 @@ exports.createNews = async (req, res, next) => {
     const { role, roleInCommunity, community } = req.user;
 
     // Authorization: Community admin can only create for their community
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -138,8 +138,8 @@ exports.getCommunityNews = async (req, res, next) => {
     const { communityId } = req.params;
     const { role, roleInCommunity, community } = req.user;
 
-    // Authorization: Community admin can only view their community's news
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    // Authorization: Non-superadmin users can only view their community's news
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -185,8 +185,8 @@ exports.getSingleNews = async (req, res, next) => {
       });
     }
 
-    // Authorization: Community admin can only view their community's news
-    if (roleInCommunity === 'admin' && news.community._id.toString() !== community) {
+    // Authorization: Non-superadmin users can only view their community's news
+    if (role !== 'superadmin' && news.community._id.toString() !== community.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -216,8 +216,8 @@ exports.getNewsHeadlines = async (req, res, next) => {
     const { role, roleInCommunity, community } = req.user;
     const limit = parseInt(req.query.limit) || 5;
 
-    // Authorization: Community admin can only view their community's news
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    // Authorization: Non-superadmin users can only view their community's news
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,

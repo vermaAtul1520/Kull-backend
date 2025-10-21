@@ -7,7 +7,7 @@ exports.createDonation = async (req, res) => {
     const { communityId } = req.params;
 
     // Authorization: Community admin can only create for their community
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -44,8 +44,8 @@ exports.getDonationsByCommunity = async (req, res) => {
     const { role, roleInCommunity, community } = req.user;
     const { communityId } = req.params;
 
-    // Authorization: Community admin can only view their community's donations
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    // Authorization: Non-superadmin users can only view their community's donations
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -92,8 +92,8 @@ exports.getDonationById = async (req, res) => {
       });
     }
 
-    // Authorization: Community admin can only view their community's donations
-    if (roleInCommunity === 'admin' && donation.communityId._id.toString() !== community) {
+    // Authorization: Non-superadmin users can only view their community's donations
+    if (role !== 'superadmin' && donation.communityId._id.toString() !== community.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,

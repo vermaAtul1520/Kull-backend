@@ -34,8 +34,8 @@ exports.createPost = async (req, res) => {
       });
     }
 
-    // Authorization: Users can only post to their own community
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    // Authorization: Non-superadmin users can only post to their own community
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -76,8 +76,8 @@ exports.getPostsByCommunity = async (req, res) => {
     const { communityId } = req.params;
     const { role, roleInCommunity, community } = req.user;
 
-    // Authorization: Community members can only view their community's posts
-    if (roleInCommunity === 'admin' && community !== communityId) {
+    // Authorization: Non-superadmin users can only view their community's posts
+    if (role !== 'superadmin' && community.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -125,8 +125,8 @@ exports.getSinglePost = async (req, res) => {
       });
     }
 
-    // Authorization: Users can only view posts from their community
-    if (roleInCommunity === 'admin' && post.community._id.toString() !== community) {
+    // Authorization: Non-superadmin users can only view posts from their community
+    if (role !== 'superadmin' && post.community._id.toString() !== community.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
