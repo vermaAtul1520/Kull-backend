@@ -1,0 +1,749 @@
+{
+  "info": {
+    "name": "KULL Platform API v2.1",
+    "description": "Complete API collection for KULL Platform with updated password management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "kull-api-v2.1",
+    "version": "2.1.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_JWT_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "communityId",
+      "value": "YOUR_COMMUNITY_ID",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "YOUR_USER_ID",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailOrPhone\": \"user@example.com\",\n  \"password\": \"yourpassword\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Pending Users (SuperAdmin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "pending"]
+            }
+          }
+        },
+        {
+          "name": "City Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/city-search?query=delhi",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "city-search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "delhi"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Family Tree Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/family-tree/search?q=rajesh&gotra=Kashyap&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "family-tree", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "rajesh"
+                },
+                {
+                  "key": "gotra",
+                  "value": "Kashyap"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Own Profile",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"occupation\": \"Engineer\",\n  \"address\": \"New Delhi\",\n  \"gotra\": \"Kashyap\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update User (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"communityStatus\": \"approved\",\n  \"roleInCommunity\": \"moderator\",\n  \"status\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Assign Community",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"communityId\": \"{{communityId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/assignCommunity",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "assignCommunity"]
+            }
+          }
+        },
+        {
+          "name": "Delete User (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Communities",
+      "item": [
+        {
+          "name": "Create Community",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Community\",\n  \"description\": \"Community description\",\n  \"createdBy\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "create"]
+            }
+          }
+        },
+        {
+          "name": "List Communities (SuperAdmin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities?filter[name]=Test&sort=-createdAt&limit=20&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities"],
+              "query": [
+                {
+                  "key": "filter[name]",
+                  "value": "Test"
+                },
+                {
+                  "key": "sort",
+                  "value": "-createdAt"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Community by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Community Users (With Passwords for Admins)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/users?filter[gender]=male&sort=firstName&limit=50&projection=firstName,email,phone,password",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "users"],
+              "query": [
+                {
+                  "key": "filter[gender]",
+                  "value": "male",
+                  "description": "Filter by gender"
+                },
+                {
+                  "key": "sort",
+                  "value": "firstName",
+                  "description": "Sort by first name"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "projection",
+                  "value": "firstName,email,phone,password",
+                  "description": "Include password field (admin only)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add User to Community (With Password)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"SecurePassword123\",\n  \"gender\": \"male\",\n  \"occupation\": \"Engineer\",\n  \"cGotNo\": \"GT001\",\n  \"gotra\": \"Kashyap\",\n  \"subGotra\": \"Branch1\",\n  \"roleInCommunity\": \"member\",\n  \"address\": \"New Delhi\",\n  \"pinCode\": \"110001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get Community Officers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/users/orgofficers",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "users", "orgofficers"]
+            }
+          }
+        },
+        {
+          "name": "Get Gotra Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/gotraDetail",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "gotraDetail"]
+            }
+          }
+        },
+        {
+          "name": "Get Configuration",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/configuration",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "configuration"]
+            }
+          }
+        },
+        {
+          "name": "Create/Update Configuration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"banner\": [\"url1\", \"url2\"],\n  \"addPopup\": \"popup_url\",\n  \"gotra\": [\n    {\n      \"name\": \"Kashyap\",\n      \"subGotra\": [\"Branch1\", \"Branch2\"]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/configuration",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "configuration"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appeals",
+      "item": [
+        {
+          "name": "Create Appeal (Any User)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Community Hall Maintenance\",\n  \"description\": \"The ceiling fan needs repair\",\n  \"category\": \"maintenance\",\n  \"priority\": \"medium\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/appeals",
+              "host": ["{{baseUrl}}"],
+              "path": ["appeals"]
+            }
+          }
+        },
+        {
+          "name": "List Appeals (Role-Based)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/appeals?filter[status]=pending&sort=-createdAt&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["appeals"],
+              "query": [
+                {
+                  "key": "filter[status]",
+                  "value": "pending"
+                },
+                {
+                  "key": "sort",
+                  "value": "-createdAt"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Appeal",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/appeals/{{appealId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["appeals", "{{appealId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Appeal (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in-progress\",\n  \"priority\": \"high\",\n  \"adminNotes\": \"Working on it\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/appeals/{{appealId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["appeals", "{{appealId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Appeal (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/appeals/{{appealId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["appeals", "{{appealId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "News",
+      "item": [
+        {
+          "name": "Get Headlines (For Slider)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/news/community/{{communityId}}/headlines?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "community", "{{communityId}}", "headlines"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Community News",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/news/community/{{communityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "community", "{{communityId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create News (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Community Event This Weekend\",\n  \"content\": \"Join us for the annual gathering...\",\n  \"category\": \"events\",\n  \"tags\": [\"event\", \"gathering\"],\n  \"imageUrl\": \"https://example.com/image.jpg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/news/community/{{communityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "community", "{{communityId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Single News",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/news/{{newsId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "{{newsId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update News (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Title\",\n  \"content\": \"Updated content\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/news/{{newsId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "{{newsId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete News (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/news/{{newsId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["news", "{{newsId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Post Title\",\n  \"content\": \"Post content...\",\n  \"images\": [\"url1\", \"url2\"],\n  \"tags\": [\"tag1\", \"tag2\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts",
+              "host": ["{{baseUrl}}"],
+              "path": ["posts"]
+            }
+          }
+        },
+        {
+          "name": "List Posts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/posts?filter[community]={{communityId}}&sort=-createdAt",
+              "host": ["{{baseUrl}}"],
+              "path": ["posts"],
+              "query": [
+                {
+                  "key": "filter[community]",
+                  "value": "{{communityId}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "-createdAt"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bhajans",
+      "item": [
+        {
+          "name": "Create Bhajan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bhajan Title\",\n  \"artist\": \"Artist Name\",\n  \"category\": \"devotional\",\n  \"youtubeUrl\": \"https://youtube.com/watch?v=...\",\n  \"description\": \"...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/bhajans",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "bhajans"]
+            }
+          }
+        },
+        {
+          "name": "List Bhajans",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/communities/{{communityId}}/bhajans?filter[category]=devotional&sort=-views",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "{{communityId}}", "bhajans"],
+              "query": [
+                {
+                  "key": "filter[category]",
+                  "value": "devotional"
+                },
+                {
+                  "key": "sort",
+                  "value": "-views"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Other APIs",
+      "item": [
+        {
+          "name": "Job Posts",
+          "item": [
+            {
+              "name": "Create Job Post",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Software Engineer\",\n  \"company\": \"Tech Corp\",\n  \"location\": \"Delhi\",\n  \"salary\": \"8-12 LPA\",\n  \"jobType\": \"full-time\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/jobPosts",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["jobPosts"]
+                }
+              }
+            },
+            {
+              "name": "List Job Posts",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/jobPosts",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["jobPosts"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sports Events",
+          "item": [
+            {
+              "name": "List Sports Events",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/sportsEvents",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["sportsEvents"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dukaans",
+          "item": [
+            {
+              "name": "List Dukaans",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/dukaans",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["dukaans"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Education Resources",
+          "item": [
+            {
+              "name": "List Education Resources",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/educationResources",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["educationResources"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
