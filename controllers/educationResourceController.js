@@ -33,18 +33,23 @@ class EducationResourceController extends BaseController {
   // Get all Resources
   getAllResources = async (req, res, next) => {
     try {
-      if (req.user.isCommunityAdmin) {
+      if (req.user.isSuperAdmin) {
+        // SuperAdmin: can see all educational resources across all communities
+        // No additional filter needed
+      } else {
+        // Community Admin and Regular Users: see all educational resources in their community
+        if (!req.user.community) {
+          return res.status(403).json({
+            success: false,
+            message: "Community access is required to view educational resources",
+          });
+        }
+
         req.parsedQuery.filter = {
           ...req.parsedQuery.filter,
           community: req.user.community,
         };
-      } else if (!req.user.isSuperAdmin) {
-        req.parsedQuery.filter = {
-          ...req.parsedQuery.filter,
-          createdBy: req.user.id,
-        };
       }
-
       return this.getAll(req, res, next);
     } catch (err) {
       next(err);
