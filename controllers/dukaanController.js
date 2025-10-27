@@ -10,6 +10,24 @@ class DukaanController extends BaseController {
   // Create Dukaan
   createDukaan = async (req, res, next) => {
     try {
+      // Extract and validate new fields
+      const {
+        shopName,
+        description,
+        banner,
+        url,
+        isActive = true,
+        ...otherFields
+      } = req.body;
+
+      // Validate required fields
+      if (!shopName) {
+        return res.status(400).json({
+          success: false,
+          message: "Dukaan name is required",
+        });
+      }
+
       if (req.user.isSuperAdmin) {
         // superadmin must explicitly pass community
         if (!req.body.community) {
@@ -25,8 +43,76 @@ class DukaanController extends BaseController {
         req.body.createdBy = req.user.id;
       }
 
-      const dukaan = await this.model.create(req.body);
-      res.status(201).json({ success: true, data: dukaan });
+      // Prepare dukaan data with new fields
+      const dukaanData = {
+        ...req.body,
+        shopName: shopName.trim(),
+        description: description?.trim(),
+        banner: banner?.trim(),
+        url: url?.trim(),
+        isActive,
+      };
+
+      const dukaan = await this.model.create(dukaanData);
+      res.status(201).json({
+        success: true,
+        message: "Dukaan created successfully",
+        data: dukaan
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // Update Dukaan
+  updateDukaan = async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const {
+        shopName,
+        description,
+        banner,
+        url,
+        isActive,
+      } = req.body;
+
+      // Find the dukaan first
+      const existingDukaan = await this.model.findById(id);
+      if (!existingDukaan) {
+        return res.status(404).json({
+          success: false,
+          message: "Dukaan not found",
+        });
+      }
+
+      // Check permissions
+      if (!req.user.isSuperAdmin &&
+          existingDukaan.community.toString() !== req.user.community.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only update dukaans in your community",
+        });
+      }
+
+      // Prepare update data
+      const updateData = {};
+      if (shopName !== undefined) updateData.shopName = shopName.trim();
+      if (description !== undefined) updateData.description = description?.trim();
+      if (banner !== undefined) updateData.banner = banner?.trim();
+      if (url !== undefined) updateData.url = url?.trim();
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      const updatedDukaan = await this.model.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Dukaan updated successfully",
+        data: updatedDukaan,
+      });
     } catch (err) {
       next(err);
     }
@@ -67,32 +153,7 @@ class DukaanController extends BaseController {
     }
   };
 
-  // Update Dukaan
-  updateDukaan = async (req, res, next) => {
-    try {
-      // Restriction logic
-      if (!req.user.isSuperAdmin) {
-        // Community admin or normal user - check if dukaan belongs to their community
-        const dukaan = await this.model.findById(req.params.id);
-        if (!dukaan) {
-          return res.status(404).json({
-            success: false,
-            message: "Dukaan not found",
-          });
-        }
 
-        if (dukaan.community.toString() !== req.user.community.toString()) {
-          return res.status(403).json({
-            success: false,
-            message: "Not authorized to update Dukaan outside your community",
-          });
-        }
-      }
-      return this.updateOne(req, res, next);
-    } catch (err) {
-      next(err);
-    }
-  };
 
   // Delete Dukaan
   deleteDukaan = async (req, res, next) => {
