@@ -39,6 +39,34 @@ const DukaanSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    banner: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Allow empty banner
+          // Basic URL validation for image URLs
+          return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)$/i.test(v);
+        },
+        message: "Banner must be a valid image URL (jpg, jpeg, png, gif, webp, svg)"
+      }
+    },
+    url: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Allow empty URL
+          // Basic URL validation
+          return /^https?:\/\/.+\..+/.test(v);
+        },
+        message: "Website URL must be a valid URL starting with http:// or https://"
+      }
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
   },
   { timestamps: true }
 );

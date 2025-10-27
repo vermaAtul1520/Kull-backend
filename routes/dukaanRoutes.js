@@ -23,6 +23,8 @@ router.get(
       "community",
       "createdBy",
       "createdAt",
+      "isActive",
+      "url",
     ],
     allowSortFields: ["shopName", "category", "createdAt"],
     maxLimit: 50,
