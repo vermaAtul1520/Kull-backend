@@ -25,8 +25,8 @@ const emailTemplates = {
         </ul>
       </div>
       
-      <div class="text-center">
-        <a href="{{loginUrl}}" class="cta-button large">Get Started</a>
+      <div class="message">
+        Open the mobile app to get started.
       </div>
       
       <div class="info-box success">
@@ -88,8 +88,8 @@ const emailTemplates = {
         </div>
       </div>
       
-      <div class="text-center">
-        <a href="{{dashboardUrl}}" class="cta-button">View Dashboard</a>
+      <div class="message">
+        Once Kull team verify the detail and approv your request you will get notified on your email.
       </div>
       
       <div class="message">
@@ -118,18 +118,18 @@ const emailTemplates = {
         We received a request to reset the password for your {{platformName}} account. To proceed with resetting your password, please click the button below.
       </div>
       
-      <div class="text-center">
-        <a href="{{resetUrl}}" class="cta-button large">Reset My Password</a>
+      <div class="highlight-box">
+        <div class="highlight-title">Your Password Reset Token</div>
+        <div class="highlight-value">{{resetToken}}</div>
       </div>
-      
+
+      <div class="message">
+        Please enter this reset token in the mobile app to reset your password.
+      </div>
+
       <div class="info-box info">
         <h3>⏰ Important Information</h3>
-        <p>This password reset link will expire in <strong>{{expiryTime}}</strong>. If the link expires, you'll need to request a new password reset.</p>
-      </div>
-      
-      <div class="info-box">
-        <p><strong>Button not working?</strong> Copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; font-size: 12px; color: #666; margin-top: 10px;">{{resetUrl}}</p>
+        <p>This password reset token will expire in <strong>{{expiryTime}}</strong>. If the token expires, you'll need to request a new password reset.</p>
       </div>
       
       <div class="info-box success">
@@ -248,8 +248,8 @@ const emailTemplates = {
         <div class="highlight-value" style="font-size: 18px; letter-spacing: normal;">{{communityName}}</div>
       </div>
       
-      <div class="text-center">
-        <a href="{{communityUrl}}" class="cta-button large">Explore Community</a>
+      <div class="message">
+        Explore the community through the mobile app.
       </div>
       
       <div class="info-box info">
@@ -296,8 +296,8 @@ const emailTemplates = {
         This decision doesn't prevent you from applying to other communities on our platform or reapplying to this community in the future if circumstances change.
       </div>
 
-      <div class="text-center">
-        <a href="{{contactUrl}}" class="cta-button">Contact Support</a>
+      <div class="message">
+        You can contact support through the mobile app.
       </div>
       
       <div class="message">
@@ -314,7 +314,7 @@ const emailTemplates = {
     accentColor: '#28a745',
     headerIcon: '🎉',
     headerTitle: 'Welcome to {{communityName}}!',
-    headerSubtitle: 'You have been added by the admin',
+    headerSubtitle: 'You have been added by the admin or super admin in a Kull community',
     content: `
       <div class="status-badge status-success">✅ Account Activated</div>
 
@@ -333,12 +333,12 @@ const emailTemplates = {
       <div class="info-box warning">
         <h3>🔐 Your Login Credentials</h3>
         <p><strong>Email/Phone:</strong> {{loginIdentifier}}</p>
-        <p><strong>Temporary Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">{{temporaryPassword}}</code></p>
+        <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">{{temporaryPassword}}</code></p>
         <p style="color: #856404; margin-top: 10px;"><strong>⚠️ Important:</strong> Please change your password after your first login for security purposes.</p>
       </div>
 
-      <div class="text-center">
-        <a href="{{loginUrl}}" class="cta-button large">Login Now</a>
+      <div class="message">
+        Use these credentials to log in through the mobile app.
       </div>
 
       <div class="info-box info">

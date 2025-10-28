@@ -123,19 +123,6 @@ exports.signupUser = async (req, res, next) => {
         console.error('Failed to send welcome email:', emailError);
       }
 
-      // Notify community admin
-      if (communityAdmin && communityAdmin.email) {
-        try {
-          await emailService.sendJoinRequestNotificationToAdmin(
-            communityAdmin.email,
-            communityAdmin.firstName,
-            `${newUser.firstName} ${newUser.lastName}`,
-            community.name
-          );
-        } catch (emailError) {
-          console.error('Failed to send admin notification:', emailError);
-        }
-      }
     }
 
     // -------- CASE 2: No referral — notify SUPER ADMIN --------------
