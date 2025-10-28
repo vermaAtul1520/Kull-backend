@@ -350,7 +350,7 @@ class CommunityController extends BaseController {
               plainPassword
             );
           } else {
-            // Send generic welcome email with credentials
+            // Send generic welcome email with credentials if no community
             await emailService.sendEmail(
               newUser.email || newUser.phone,
               'Welcome to KULL Platform - Your Account Details',
@@ -365,6 +365,8 @@ class CommunityController extends BaseController {
                     <p><strong>Email/Phone:</strong> ${newUser.email || newUser.phone}</p>
                     <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${plainPassword}</code></p>
                   </div>
+
+                  <p>Open the mobile app and use these credentials to log in.</p>
 
                   <p>If you have any questions or need assistance, please contact our support team.</p>
 
