@@ -93,11 +93,16 @@ const sendEmail = async (to, subject, html, text = null) => {
     if (USE_NODEMAILER) {
         try {
             const transporter = nodemailer.createTransport({
-              service: 'gmail', // or any SMTP provider
+              host: 'smtp.gmail.com',
+              port: 587,
+              secure: false,
               auth: {
                 user: EMAIL_USER,
                 pass: EMAIL_PASS,
               },
+              connectionTimeout: 10000, // 10 seconds
+              greetingTimeout: 5000,
+              socketTimeout: 10000,
             });
             const mailOptions = {
                 from: `"${process.env.EMAIL_SENDER_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
