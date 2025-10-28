@@ -93,8 +93,8 @@ const sendEmail = async (to, subject, html, text = null) => {
     if (USE_NODEMAILER) {
         try {
             const transporter = nodemailer.createTransport({
-              host: 'smtp.gmail.com',
-              port: 587,
+              host: 'smtp.mailgun.org',
+              port: 2525,
               secure: false,
               auth: {
                 user: EMAIL_USER,
