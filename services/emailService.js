@@ -9,36 +9,10 @@ const FALLBACK_EMAIL_USER = 'vermaak1234987@gmail.com';
 const FALLBACK_EMAIL_PASS = 'gfpporoujbbzgutc';
 
 // Determine which email service to use with fallbacks
-const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
 const EMAIL_USER = process.env.EMAIL_USER || FALLBACK_EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS || FALLBACK_EMAIL_PASS;
-
-const USE_SENDGRID = process.env.USE_SENDGRID
 const USE_NODEMAILER = EMAIL_USER && EMAIL_PASS;
 
-// Initialize SendGrid (if enabled and configured)
-if (USE_SENDGRID) {
-    sgMail.setApiKey(SENDGRID_KEY);
-    console.log('✅ Email Service: SendGrid initialized');
-}
-
-// Initialize Nodemailer transporter (Gmail SMTP)
-let nodemailerTransporter = null;
-if (USE_NODEMAILER) {
-    nodemailerTransporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: EMAIL_USER,
-            pass: EMAIL_PASS
-        }
-    });
-    console.log('✅ Email Service: Nodemailer (Gmail) initialized');
-}
-
-// Warning if no email service is configured
-if (!USE_SENDGRID && !USE_NODEMAILER) {
-    console.warn('⚠️  WARNING: No email service configured. Please set up SendGrid or Nodemailer credentials.');
-}
 
 // Base template cache
 let baseTemplate = null;
@@ -115,51 +89,29 @@ const buildEmailFromTemplate = async (templateName, data) => {
 
 // Base email sending function with automatic fallback
 const sendEmail = async (to, subject, html, text = null) => {
-    // Try SendGrid first (if enabled)
-    if (USE_SENDGRID) {
-        try {
-            const msg = {
-                to,
-                from: {
-                    email: process.env.SENDGRID_FROM_EMAIL || 'noreply@kull.com',
-                    name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
-                },
-                subject,
-                html,
-                text: text || html.replace(/<[^>]*>/g, '')
-            };
-
-            const response = await sgMail.send(msg);
-            console.log(`✅ Email sent via SendGrid to ${to}: ${subject}`);
-            return response;
-        } catch (error) {
-            console.error('❌ SendGrid failed:', error.message);
-
-            // If SendGrid fails and Nodemailer is available, try fallback
-            if (USE_NODEMAILER) {
-                console.log('🔄 Attempting fallback to Nodemailer...');
-            } else {
-                throw new Error(`SendGrid failed and no fallback available: ${error.message}`);
-            }
-        }
-    }
-
     // Use Nodemailer (Gmail SMTP) - either as primary or fallback
     if (USE_NODEMAILER) {
         try {
+            const transporter = nodemailer.createTransport({
+              service: 'gmail', // or any SMTP provider
+              auth: {
+                user: EMAIL_USER,
+                pass: EMAIL_PASS,
+              },
+            });
             const mailOptions = {
-                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
+                from: `"${process.env.EMAIL_SENDER_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
                 to: to,
                 subject: subject,
                 html: html,
                 text: text || html.replace(/<[^>]*>/g, '')
             };
 
-            const response = await nodemailerTransporter.sendMail(mailOptions);
-            console.log(`✅ Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
+            const response = await transporter.sendMail(mailOptions);
+            console.log(`Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
             return response;
         } catch (error) {
-            console.error('❌ Nodemailer failed:', error);
+            console.error('Nodemailer failed:', error);
             throw new Error(`Failed to send email via Nodemailer: ${error.message}`);
         }
     }
@@ -167,6 +119,8 @@ const sendEmail = async (to, subject, html, text = null) => {
     // No email service available
     throw new Error('No email service configured. Please set up SendGrid or Nodemailer.');
 };
+
+
 
 // Generic template email sender
 const sendTemplateEmail = async (templateName, to, data) => {
