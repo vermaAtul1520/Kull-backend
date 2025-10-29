@@ -8,6 +8,10 @@ const postSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   // Link to the community
   community: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: true },
+  // Link to likes (Like)
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Like' }],
+  // Link to comments (Comment)
+  comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
 
   isActive: { type: Boolean, default: true },
 }, {

@@ -27,4 +27,7 @@ router.post('/comments/:postId', isAuthenticated, postController.createComment);
 router.get('/comments/:postId', postController.getComments);
 router.delete('/comments/:commentId', isAuthenticated, postController.deleteComment);
 
+// Sync endpoint (superadmin only)
+router.post('/sync-likes-comments', isAuthenticated, postController.syncAllPostsLikesComments);
+
 module.exports = router;
