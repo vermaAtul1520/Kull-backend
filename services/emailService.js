@@ -9,10 +9,36 @@ const FALLBACK_EMAIL_USER = 'vermaak1234987@gmail.com';
 const FALLBACK_EMAIL_PASS = 'gfpporoujbbzgutc';
 
 // Determine which email service to use with fallbacks
+const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
 const EMAIL_USER = process.env.EMAIL_USER || FALLBACK_EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS || FALLBACK_EMAIL_PASS;
+
+const USE_SENDGRID = process.env.USE_SENDGRID
 const USE_NODEMAILER = EMAIL_USER && EMAIL_PASS;
 
+// Initialize SendGrid (if enabled and configured)
+if (USE_SENDGRID) {
+    sgMail.setApiKey(SENDGRID_KEY);
+    console.log('✅ Email Service: SendGrid initialized');
+}
+
+// Initialize Nodemailer transporter (Gmail SMTP)
+let nodemailerTransporter = null;
+if (USE_NODEMAILER) {
+    nodemailerTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: EMAIL_USER,
+            pass: EMAIL_PASS
+        }
+    });
+    console.log('✅ Email Service: Nodemailer (Gmail) initialized');
+}
+
+// Warning if no email service is configured
+if (!USE_SENDGRID && !USE_NODEMAILER) {
+    console.warn('⚠️  WARNING: No email service configured. Please set up SendGrid or Nodemailer credentials.');
+}
 
 // Base template cache
 let baseTemplate = null;
@@ -78,7 +104,7 @@ const buildEmailFromTemplate = async (templateName, data) => {
 
         // Replace all placeholders in the base template
         const finalHtml = replacePlaceholders(baseHtml, templateData);
-        const subject = replacePlaceholders(template.subject, data);
+        const subject = replacePlaceholders(template.subject, templateData);
 
         return { html: finalHtml, subject };
     } catch (error) {
@@ -89,34 +115,51 @@ const buildEmailFromTemplate = async (templateName, data) => {
 
 // Base email sending function with automatic fallback
 const sendEmail = async (to, subject, html, text = null) => {
+    // Try SendGrid first (if enabled)
+    if (USE_SENDGRID) {
+        try {
+            const msg = {
+                to,
+                from: {
+                    email: process.env.SENDGRID_FROM_EMAIL || 'innovgeist@gmail.com',
+                    name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
+                },
+                subject,
+                html,
+                text: text || html.replace(/<[^>]*>/g, '')
+            };
+
+            const response = await sgMail.send(msg);
+            console.log(`✅ Email sent via SendGrid to ${to}: ${subject}`);
+            return response;
+        } catch (error) {
+            console.error('❌ SendGrid failed:', error.message);
+
+            // If SendGrid fails and Nodemailer is available, try fallback
+            if (USE_NODEMAILER) {
+                console.log('🔄 Attempting fallback to Nodemailer...');
+            } else {
+                throw new Error(`SendGrid failed and no fallback available: ${error.message}`);
+            }
+        }
+    }
+
     // Use Nodemailer (Gmail SMTP) - either as primary or fallback
     if (USE_NODEMAILER) {
         try {
-            const transporter = nodemailer.createTransport({
-              host: 'smtp.gmail.com',
-              port: 587,
-              secure: false,
-              auth: {
-                user: EMAIL_USER,
-                pass: EMAIL_PASS,
-              },
-              connectionTimeout: 10000, // 10 seconds
-              greetingTimeout: 5000,
-              socketTimeout: 10000,
-            });
             const mailOptions = {
-                from: `"${process.env.EMAIL_SENDER_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
+                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
                 to: to,
                 subject: subject,
                 html: html,
                 text: text || html.replace(/<[^>]*>/g, '')
             };
 
-            const response = await transporter.sendMail(mailOptions);
-            console.log(`Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
+            const response = await nodemailerTransporter.sendMail(mailOptions);
+            console.log(`✅ Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
             return response;
         } catch (error) {
-            console.error('Nodemailer failed:', error);
+            console.error('❌ Nodemailer failed:', error);
             throw new Error(`Failed to send email via Nodemailer: ${error.message}`);
         }
     }
@@ -124,8 +167,6 @@ const sendEmail = async (to, subject, html, text = null) => {
     // No email service available
     throw new Error('No email service configured. Please set up SendGrid or Nodemailer.');
 };
-
-
 
 // Generic template email sender
 const sendTemplateEmail = async (templateName, to, data) => {
@@ -141,23 +182,21 @@ const sendTemplateEmail = async (templateName, to, data) => {
 // Specific email functions using templates
 const sendWelcomeEmail = async (email, firstName) => {
     return await sendTemplateEmail('welcome', email, {
-        firstName,
-        loginUrl: `${process.env.FRONTEND_URL}/login`
+        firstName
     });
 };
 
 const sendJoinRequestEmail = async (email, firstName, communityName) => {
     return await sendTemplateEmail('joinRequest', email, {
         firstName,
-        communityName,
-        dashboardUrl: `${process.env.FRONTEND_URL}/dashboard`
+        communityName
     });
 };
 
 const sendPasswordResetEmail = async (email, firstName, resetToken) => {
     return await sendTemplateEmail('passwordReset', email, {
         firstName,
-        resetUrl: `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`,
+        resetToken,
         expiryTime: '30 minutes'
     });
 };
@@ -166,16 +205,14 @@ const sendCommunityApprovalEmail = async (email, firstName, communityName, joinK
     return await sendTemplateEmail('communityApproval', email, {
         firstName,
         communityName,
-        joinKey,
-        adminPanelUrl: `${process.env.FRONTEND_URL}/admin`
+        joinKey
     });
 };
 
 const sendJoinApprovalEmail = async (email, firstName, communityName) => {
     return await sendTemplateEmail('joinApproval', email, {
         firstName,
-        communityName,
-        communityUrl: `${process.env.FRONTEND_URL}/community`
+        communityName
     });
 };
 
@@ -183,8 +220,7 @@ const sendJoinRejectionEmail = async (email, firstName, communityName, rejection
     return await sendTemplateEmail('joinRejection', email, {
         firstName,
         communityName,
-        rejectionReason: rejectionReason || 'No specific reason provided',
-        contactUrl: `${process.env.FRONTEND_URL}/contact`
+        rejectionReason: rejectionReason || 'No specific reason provided'
     });
 };
 
@@ -213,8 +249,8 @@ const sendJoinRequestNotificationToAdmin = async (adminEmail, adminName, userNam
       <div class="highlight-value" style="font-size: 18px; letter-spacing: normal;">${userName}</div>
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/admin/pending-requests" class="cta-button large">Review Request</a>
+    <div class="message">
+      Please review this request in your admin panel.
     </div>
     
     <div class="message">
@@ -231,8 +267,7 @@ const sendJoinRequestNotificationToAdmin = async (adminEmail, adminName, userNam
 const sendWelcomeToCommunityEmail = async (email, firstName, communityName) => {
     return await sendTemplateEmail('joinApproval', email, {
         firstName,
-        communityName,
-        communityUrl: `${process.env.FRONTEND_URL}/community`
+        communityName
     });
 };
 
@@ -241,8 +276,7 @@ const sendCommunityRequestConfirmation = async (email, firstName, communityName)
         firstName,
         communityName: `"${communityName}" Registration`,
         headerTitle: 'Request Submitted!',
-        headerSubtitle: 'Community registration request received',
-        dashboardUrl: `${process.env.FRONTEND_URL}/dashboard`
+        headerSubtitle: 'Community registration request received'
     });
 
     const customContent = `
@@ -271,8 +305,8 @@ const sendCommunityRequestConfirmation = async (email, firstName, communityName)
       </div>
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/dashboard" class="cta-button">View Dashboard</a>
+    <div class="message">
+      You can track the status of your request in your mobile app dashboard.
     </div>
     
     <div class="message">
@@ -313,8 +347,8 @@ const sendCommunityRequestNotificationToSuperAdmin = async (adminEmail, adminNam
       <p class="text-small text-center" style="color: #666; margin-top: 10px;">Requested by: ${requesterName}</p>
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/superadmin/community-requests" class="cta-button large">Review Request</a>
+    <div class="message">
+      Please review this request in your super admin panel.
     </div>
     
     <div class="info-box warning">
@@ -358,8 +392,8 @@ const sendPasswordResetConfirmation = async (email, firstName) => {
       Your password has been successfully reset. You can now log in to your account using your new password.
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/login" class="cta-button large">Login Now</a>
+    <div class="message">
+      You can now log in to your account using your new password through the mobile app.
     </div>
     
     <div class="info-box warning">
@@ -410,9 +444,8 @@ const sendCommunityRejectionEmail = async (email, firstName, communityName, reje
       We encourage you to address the concerns mentioned above and reapply when ready.
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/contact" class="cta-button">Contact Support</a>
-      <a href="${process.env.FRONTEND_URL}/auth/request-community" class="cta-button secondary">Submit New Request</a>
+    <div class="message">
+      You can contact support or submit a new request through the mobile app.
     </div>
     
     <div class="message">
@@ -453,12 +486,8 @@ const sendNewContentNotification = async (emails, contentTitle, communityName, a
           <div class="highlight-value" style="font-size: 18px; letter-spacing: normal;">${contentTitle}</div>
         </div>
         
-        <div class="text-center">
-          <a href="${process.env.FRONTEND_URL}/community/content" class="cta-button large">View Content</a>
-        </div>
-        
-        <div class="message text-small" style="color: #888;">
-          <a href="${process.env.FRONTEND_URL}/unsubscribe" style="color: #888;">Unsubscribe from notifications</a>
+        <div class="message">
+          View this content in your mobile app.
         </div>
       `;
 
@@ -493,8 +522,13 @@ const sendEmailVerification = async (email, firstName, verificationToken) => {
       Please verify your email address to complete your account setup and gain full access to the platform.
     </div>
     
-    <div class="text-center">
-      <a href="${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}" class="cta-button large">Verify Email</a>
+    <div class="highlight-box">
+      <div class="highlight-title">Your Verification Token</div>
+      <div class="highlight-value">${verificationToken}</div>
+    </div>
+
+    <div class="message">
+      Please enter this verification token in the mobile app to verify your email address.
     </div>
     
     <div class="info-box info">
@@ -541,9 +575,6 @@ const sendBulkEmailToCommunity = async (emails, subject, content, communityName)
           ${content}
         </div>
         
-        <div class="message text-small" style="color: #888;">
-          <a href="${process.env.FRONTEND_URL}/unsubscribe" style="color: #888;">Unsubscribe from community emails</a>
-        </div>
       `;
 
             const finalHtml = html.replace('{{emailContent}}', customContent);
@@ -562,8 +593,7 @@ const sendCommunityAssignmentEmail = async (email, firstName, communityName, log
         firstName,
         communityName,
         loginIdentifier,
-        temporaryPassword,
-        loginUrl: `${process.env.FRONTEND_URL}/login`
+        temporaryPassword
     });
 };
 
