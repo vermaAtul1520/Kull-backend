@@ -3,6 +3,8 @@ function queryParser(opts = {}) {
     const { filter, sort, fields, page = 1, limit = 10 } = req.query;
 
     const parsedFilter = {};
+    
+    // Parse JSON filter if provided
     if (filter) {
       try {
         const f = JSON.parse(filter);
@@ -11,6 +13,15 @@ function queryParser(opts = {}) {
         }
       } catch (err) {
         return res.status(400).json({ success: false, message: "Invalid filter" });
+      }
+    }
+    
+    // Also check for individual query parameters that match allowFilterFields
+    if (opts.allowFilterFields && Array.isArray(opts.allowFilterFields)) {
+      for (const field of opts.allowFilterFields) {
+        if (req.query[field] !== undefined && !parsedFilter[field]) {
+          parsedFilter[field] = req.query[field];
+        }
       }
     }
 
