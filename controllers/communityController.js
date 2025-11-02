@@ -196,13 +196,25 @@ class CommunityController extends BaseController {
   getGotraSubgotraByCommunityId = async (req, res, next) => {
     try {
       const { communityId } = req.params;
-      const config = await CommunityConfiguration.findOne({ community: communityId })
+
+      // Find community by code (treating communityId parameter as code)
+      const community = await Community.findOne({ code: communityId });
+
+      if (!community) {
+        return res.status(404).json({
+          success: false,
+          message: "Community not found with the provided code"
+        });
+      }
+
+      // Find configuration for this community
+      const config = await CommunityConfiguration.findOne({ community: community._id })
         .select("gotra");
 
       if (!config) {
         return res.status(404).json({
           success: false,
-          message: "Configuration not found"
+          message: "Configuration not found for this community"
         });
       }
 

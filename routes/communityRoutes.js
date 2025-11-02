@@ -24,6 +24,9 @@ router.get(
 // YouTube video info (must be before /:id route to avoid conflict)
 router.get("/video-info", bhajanController.fetchYoutubeVideoInfo);
 
+// Gotra detail using code of community
+router.get("/:communityId/gotraDetail", communityController.getGotraSubgotraByCommunityId);
+
 router.get(
   "/:id",
   isAuthenticated,
@@ -81,7 +84,6 @@ router.get("/bhajans/:id", isAuthenticated, bhajanController.getBhajanById);
 router.put("/bhajans/:id", isAuthenticated, bhajanController.updateBhajan);
 router.delete("/bhajans/:id", isAuthenticated, isSuperOrCommunityAdmin, bhajanController.deleteBhajan);
 router.get("/:communityId/users/orgofficers",isAuthenticated,communityController.getOfficerForCommunity);
-router.get("/:communityId/gotraDetail", communityController.getGotraSubgotraByCommunityId);
 
 module.exports = router;
 
