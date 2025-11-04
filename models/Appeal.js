@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 const appealSchema = new mongoose.Schema(
   {
-    subject: { type: String, required: true, trim: true },
-    description: { type: String, required: true },
+    subject: { type: String, required: true, trim: false },
+    description: { type: String, required: false },
 
     category: {
       type: String,
