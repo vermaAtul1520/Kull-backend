@@ -133,8 +133,29 @@ class CommunityController extends BaseController {
       const { filter, sort, projection, skip, limit, page } = req.parsedQuery;
       const { user: requestingUser } = req; // from isAuthenticated middleware
 
+      // Extract search parameter if present
+      const searchTerm = filter?.search;
+      const otherFilters = { ...filter };
+      delete otherFilters.search;
+
       // Add community filter
-      const finalFilter = { ...(filter || {}), community: communityId };
+      const finalFilter = { ...otherFilters, community: communityId };
+
+      // If search term is provided, add regex search across multiple fields
+      if (searchTerm && searchTerm.trim() !== "") {
+        finalFilter.$or = [
+          { firstName: { $regex: searchTerm, $options: "i" } },
+          { lastName: { $regex: searchTerm, $options: "i" } },
+          { email: { $regex: searchTerm, $options: "i" } },
+          { phone: { $regex: searchTerm, $options: "i" } },
+          { gotra: { $regex: searchTerm, $options: "i" } },
+          { subGotra: { $regex: searchTerm, $options: "i" } },
+          { cast: { $regex: searchTerm, $options: "i" } },
+          { cGotNo: { $regex: searchTerm, $options: "i" } },
+          { fatherName: { $regex: searchTerm, $options: "i" } },
+          { occupation: { $regex: searchTerm, $options: "i" } }
+        ];
+      }
 
       // Build selection string - include plain text password for admin users
       let selectFields = projection || "";

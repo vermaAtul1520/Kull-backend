@@ -43,7 +43,8 @@ router.delete(
 router.get("/:communityId/users", isAuthenticated, queryParser({
   allowFilterFields: [
     "firstName", "email", "role","roleInCommunity", "status",
-    "positionInCommunity","cast","cGotNo","gotra","subGotra","gender","communityStatus"
+    "positionInCommunity","cast","cGotNo","gotra","subGotra","gender","communityStatus",
+    "search"  // Generic search parameter for partial matching
   ],
   allowSortFields: ["firstName", "email", "createdAt"],
   allowProjectFields: [
