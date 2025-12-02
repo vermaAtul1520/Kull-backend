@@ -31,6 +31,13 @@ class UserController extends BaseController {
 
       // Superadmin: full access
       if (user.role === "superadmin") {
+        // Hash password if it's being updated
+        if (updateData.password) {
+          const plainPassword = updateData.password;
+          updateData.password = await bcrypt.hash(plainPassword, 10);
+          // Also update plainTextPassword for admin viewing
+          updateData.plainTextPassword = plainPassword;
+        }
         Object.assign(targetUser, updateData);
         await targetUser.save();
 
