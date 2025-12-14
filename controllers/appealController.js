@@ -48,16 +48,20 @@ class AppealController extends BaseController {
   getAll = async (req, res, next) => {
     try {
         // Inject role-based restrictions into queryParser filter
-        if (req.user.isCommunityAdmin) {
-        req.parsedQuery.filter = {
-            ...req.parsedQuery.filter,
-            community: req.user.community,
-        };
+        // Check roleInCommunity directly instead of relying on isCommunityAdmin flag
+        // This is more reliable as isCommunityAdmin might be incorrectly set due to community population issues
+        if (req.user.roleInCommunity === "admin" && req.user.community) {
+          // Community admin sees all appeals in their community
+          req.parsedQuery.filter = {
+              ...req.parsedQuery.filter,
+              community: req.user.community,
+          };
         } else if (!req.user.isSuperAdmin) {
-        req.parsedQuery.filter = {
-            ...req.parsedQuery.filter,
-            user: req.user.id,
-        };
+          // Regular users see only their own appeals
+          req.parsedQuery.filter = {
+              ...req.parsedQuery.filter,
+              user: req.user.id,
+          };
         }
         // Superadmin → no restrictions
 
