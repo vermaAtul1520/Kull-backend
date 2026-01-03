@@ -370,48 +370,47 @@ class CommunityController extends BaseController {
         role: "user" // Regular user role
       });
 
-      // Send welcome email with credentials
+      // Send welcome email with credentials (non-blocking)
       if (newUser.email || newUser.phone) {
-        try {
-          if (community) {
-            // Send email with community details and credentials
-            await emailService.sendCommunityAssignmentEmail(
-              newUser.email || newUser.phone,
-              newUser.firstName,
-              community.name,
-              newUser.email || newUser.phone,
-              plainPassword
-            );
-          } else {
-            // Send generic welcome email with credentials if no community
-            await emailService.sendEmail(
-              newUser.email || newUser.phone,
-              'Welcome to KULL Platform - Your Account Details',
-              `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <h2 style="color: #28a745;">Welcome to KULL Platform!</h2>
-                  <p>Hello ${newUser.firstName},</p>
-                  <p>Your account has been created by the administrator. Below are your login credentials:</p>
+        if (community) {
+          // Send email with community details and credentials
+          emailService.sendCommunityAssignmentEmail(
+            newUser.email || newUser.phone,
+            newUser.firstName,
+            community.name,
+            newUser.email || newUser.phone,
+            plainPassword
+          ).catch(emailError => {
+            console.error('Failed to send community assignment email:', emailError);
+          });
+        } else {
+          // Send generic welcome email with credentials if no community
+          emailService.sendEmail(
+            newUser.email || newUser.phone,
+            'Welcome to KULL Platform - Your Account Details',
+            `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #28a745;">Welcome to KULL Platform!</h2>
+                <p>Hello ${newUser.firstName},</p>
+                <p>Your account has been created by the administrator. Below are your login credentials:</p>
 
-                  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h3 style="margin-top: 0;">🔐 Your Login Credentials</h3>
-                    <p><strong>Email/Phone:</strong> ${newUser.email || newUser.phone}</p>
-                    <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${plainPassword}</code></p>
-                  </div>
-
-                  <p>Open the mobile app and use these credentials to log in.</p>
-
-                  <p>If you have any questions or need assistance, please contact our support team.</p>
-
-                  <hr style="border: none; border-top: 1px solid #e9ecef; margin: 30px 0;">
-                  <p style="color: #888; font-size: 14px; text-align: center;">© ${new Date().getFullYear()} KULL Platform. All rights reserved.</p>
+                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0;">🔐 Your Login Credentials</h3>
+                  <p><strong>Email/Phone:</strong> ${newUser.email || newUser.phone}</p>
+                  <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">${plainPassword}</code></p>
                 </div>
-              `
-            );
-          }
-        } catch (emailError) {
-          console.error('Failed to send welcome email:', emailError);
-          // Continue even if email fails
+
+                <p>Open the mobile app and use these credentials to log in.</p>
+
+                <p>If you have any questions or need assistance, please contact our support team.</p>
+
+                <hr style="border: none; border-top: 1px solid #e9ecef; margin: 30px 0;">
+                <p style="color: #888; font-size: 14px; text-align: center;">© ${new Date().getFullYear()} KULL Platform. All rights reserved.</p>
+              </div>
+            `
+          ).catch(emailError => {
+            console.error('Failed to send welcome email:', emailError);
+          });
         }
       }
 

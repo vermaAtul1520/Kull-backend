@@ -38,4 +38,8 @@ const MeetingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+MeetingSchema.index({ community: 1 });
+MeetingSchema.index({ createdBy: 1 });
+MeetingSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Meeting", MeetingSchema);

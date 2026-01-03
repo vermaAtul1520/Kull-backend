@@ -18,4 +18,9 @@ const postSchema = new mongoose.Schema({
   timestamps: true
 });
 
+postSchema.index({ community: 1 });
+postSchema.index({ author: 1 });
+postSchema.index({ community: 1, isActive: 1 });
+postSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Post', postSchema);

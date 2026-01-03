@@ -113,42 +113,37 @@ exports.signupUser = async (req, res, next) => {
       newUser.roleInCommunity = "member"; // Ensure role is set
       await newUser.save(); 
 
-      // Send welcome email to new user
-      try {
-        await emailService.sendWelcomeEmail(
-          newUser.email || newUser.phone,
-          newUser.firstName
-        );
-      } catch (emailError) {
+      // Send welcome email to new user (non-blocking)
+      emailService.sendWelcomeEmail(
+        newUser.email || newUser.phone,
+        newUser.firstName
+      ).catch(emailError => {
         console.error('Failed to send welcome email:', emailError);
-      }
+      });
 
     }
 
-    // -------- CASE 2: No referral — notify SUPER ADMIN --------------
+    // -------- CASE 2: No referral — notify SUPER ADMIN (non-blocking) --------------
     if (!referral && process.env.SUPER_ADMIN_EMAIL) {
-      try {
-        // Send custom email to super admin about pending user
-        await emailService.sendEmail(
-          process.env.SUPER_ADMIN_EMAIL,
-          'New User Signup Pending Approval',
-          `
-            <div style="font-family: Arial, sans-serif; padding: 20px;">
-              <h2 style="color: #333;">New User Registration - Pending Approval</h2>
-              <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
-                <p><strong>Email:</strong> ${newUser.email || "N/A"}</p>
-                <p><strong>Phone:</strong> ${newUser.phone || "N/A"}</p>
-                <p><strong>User Code:</strong> ${newUser.code}</p>
-                <p style="color: #ff9800;"><strong>Status:</strong> Pending - No Referral Provided</p>
-              </div>
-              <p>Please review and approve this user from the admin panel.</p>
+      emailService.sendEmail(
+        process.env.SUPER_ADMIN_EMAIL,
+        'New User Signup Pending Approval',
+        `
+          <div style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2 style="color: #333;">New User Registration - Pending Approval</h2>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p><strong>Name:</strong> ${newUser.firstName} ${newUser.lastName}</p>
+              <p><strong>Email:</strong> ${newUser.email || "N/A"}</p>
+              <p><strong>Phone:</strong> ${newUser.phone || "N/A"}</p>
+              <p><strong>User Code:</strong> ${newUser.code}</p>
+              <p style="color: #ff9800;"><strong>Status:</strong> Pending - No Referral Provided</p>
             </div>
-          `
-        );
-      } catch (emailError) {
+            <p>Please review and approve this user from the admin panel.</p>
+          </div>
+        `
+      ).catch(emailError => {
         console.error('Failed to send super admin notification:', emailError);
-      }
+      });
     }
 
     // -------- Return success --------
