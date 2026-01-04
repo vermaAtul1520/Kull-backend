@@ -68,7 +68,7 @@ class KartavyaController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (kartavya.community.toString() !== req.user.community.toString()) {
+        if (kartavya.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to update Kartavya outside your community",
@@ -91,7 +91,7 @@ class KartavyaController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (kartavya.community.toString() !== req.user.community.toString()) {
+        if (kartavya.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to delete Kartavya outside your community",

@@ -7,7 +7,7 @@ exports.createDonation = async (req, res) => {
     const { communityId } = req.params;
 
     // Authorization: Community admin can only create for their community
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -45,7 +45,7 @@ exports.getDonationsByCommunity = async (req, res) => {
     const { communityId } = req.params;
 
     // Authorization: Non-superadmin users can only view their community's donations
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -93,7 +93,7 @@ exports.getDonationById = async (req, res) => {
     }
 
     // Authorization: Non-superadmin users can only view their community's donations
-    if (role !== 'superadmin' && donation.communityId._id.toString() !== community.toString()) {
+    if (role !== 'superadmin' && donation.communityId._id.toString() !== community._id.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -134,7 +134,7 @@ exports.updateDonation = async (req, res) => {
 
     // Authorization check
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community._id.toString();
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({ 
@@ -179,7 +179,7 @@ exports.deleteDonation = async (req, res) => {
     }
 
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && donation.communityId.toString() === community._id.toString();
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({ 

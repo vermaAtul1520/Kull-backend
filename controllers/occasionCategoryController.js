@@ -99,7 +99,7 @@ class OccasionCategoryController extends BaseController {
       }
 
       // Check community access
-      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community.toString()) {
+      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to access this category",
@@ -122,7 +122,7 @@ class OccasionCategoryController extends BaseController {
       }
 
       // Check authorization
-      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community.toString()) {
+      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to update category outside your community",
@@ -169,7 +169,7 @@ class OccasionCategoryController extends BaseController {
       }
 
       // Check authorization
-      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community.toString()) {
+      if (!req.user.isSuperAdmin && category.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to delete category outside your community",

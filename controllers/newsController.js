@@ -8,7 +8,7 @@ exports.createNews = async (req, res, next) => {
     const { role, roleInCommunity, community } = req.user;
 
     // Authorization: Community admin can only create for their community
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -60,7 +60,7 @@ exports.updateNews = async (req, res, next) => {
 
     // Authorization: Community admin can only update their community's news
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community._id.toString();
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -106,7 +106,7 @@ exports.deleteNews = async (req, res, next) => {
 
     // Authorization: Community admin can only delete their community's news
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community._id.toString();
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -139,7 +139,7 @@ exports.getCommunityNews = async (req, res, next) => {
     const { role, roleInCommunity, community } = req.user;
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -186,7 +186,7 @@ exports.getSingleNews = async (req, res, next) => {
     }
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && news.community._id.toString() !== community.toString()) {
+    if (role !== 'superadmin' && news.community._id.toString() !== community._id.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -217,7 +217,7 @@ exports.getNewsHeadlines = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 5;
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,

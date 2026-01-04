@@ -76,7 +76,7 @@ class EducationResourceController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (resource.community.toString() !== req.user.community.toString()) {
+        if (resource.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message:
@@ -102,7 +102,7 @@ class EducationResourceController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (resource.community.toString() !== req.user.community.toString()) {
+        if (resource.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message:

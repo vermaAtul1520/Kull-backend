@@ -161,7 +161,7 @@ class CommunityBhajansController extends BaseController {
       if (!bhajan) return res.status(404).json({ message: "Bhajan not found" });
 
       const isSuperAdmin = role === "superadmin";
-      const isCommunityAdminAndOwn = roleInCommunity === "admin" && bhajan.community.toString() === community.toString();
+      const isCommunityAdminAndOwn = roleInCommunity === "admin" && bhajan.community.toString() === community._id.toString();
 
       if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
         return res.status(403).json({ message: "Not authorized to update this Bhajan" });
@@ -186,7 +186,7 @@ class CommunityBhajansController extends BaseController {
       if (!bhajan) return res.status(404).json({ message: "Bhajan not found" });
 
       const isSuperAdmin = role === "superadmin";
-      const isCommunityAdminAndOwn = roleInCommunity === "admin" && bhajan.community.toString() === community.toString();
+      const isCommunityAdminAndOwn = roleInCommunity === "admin" && bhajan.community.toString() === community._id.toString();
 
       if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
         return res.status(403).json({ message: "Not authorized to delete this Bhajan" });

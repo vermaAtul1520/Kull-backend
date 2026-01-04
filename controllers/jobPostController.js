@@ -71,7 +71,7 @@ class JobPostController extends BaseController {
 
       // Restriction logic
       if (!req.user.isSuperAdmin) {
-        if (jobPost.community.toString() !== req.user.community.toString()) {
+        if (jobPost.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to update JobPost outside your community",
@@ -95,7 +95,7 @@ class JobPostController extends BaseController {
 
       // Restriction logic
       if (!req.user.isSuperAdmin) {
-        if (jobPost.community.toString() !== req.user.community.toString()) {
+        if (jobPost.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to delete JobPost outside your community",

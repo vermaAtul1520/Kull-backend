@@ -115,7 +115,7 @@ class OccasionController extends BaseController {
         return res.status(404).json({ success: false, message: "Occasion not found" });
       }
 
-      if (!req.user.isSuperAdmin && occasion.community.toString() !== req.user.community.toString()) {
+      if (!req.user.isSuperAdmin && occasion.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to update Occasion outside your community",
@@ -145,7 +145,7 @@ class OccasionController extends BaseController {
         return res.status(404).json({ success: false, message: "Occasion not found" });
       }
 
-      if (!req.user.isSuperAdmin && occasion.community.toString() !== req.user.community.toString()) {
+      if (!req.user.isSuperAdmin && occasion.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to delete Occasion outside your community",

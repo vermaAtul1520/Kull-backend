@@ -71,7 +71,7 @@ class MeetingController extends BaseController {
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (meeting.community.toString() !== req.user.community.toString()) {
+                if (meeting.community.toString() !== req.user.community._id.toString()) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to update Meeting outside your community",
@@ -95,7 +95,7 @@ class MeetingController extends BaseController {
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (meeting.community.toString() !== req.user.community.toString()) {
+                if (meeting.community.toString() !== req.user.community._id.toString()) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to delete Meeting outside your community",

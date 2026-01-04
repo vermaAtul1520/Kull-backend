@@ -84,7 +84,7 @@ class SportsEventController extends BaseController {
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (sportsEvent.community.toString() !== req.user.community.toString()) {
+                if (sportsEvent.community.toString() !== req.user.community._id.toString()) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to update SportsEvent outside your community",
@@ -112,7 +112,7 @@ class SportsEventController extends BaseController {
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (sportsEvent.community.toString() !== req.user.community.toString()) {
+                if (sportsEvent.community.toString() !== req.user.community._id.toString()) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to delete SportsEvent outside your community",

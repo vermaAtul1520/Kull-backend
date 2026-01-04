@@ -329,7 +329,7 @@ class UserController extends BaseController {
 
       // If community admin, verify they can only delete users from their own community
       if (adminUser.roleInCommunity === "admin" && adminUser.role !== "superadmin") {
-        if (!userToDelete.community || userToDelete.community.toString() !== adminUser.community.toString()) {
+        if (!userToDelete.community || userToDelete.community.toString() !== adminUser.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Access denied: You can only delete users from your own community"
