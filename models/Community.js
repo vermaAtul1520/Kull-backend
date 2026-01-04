@@ -143,33 +143,51 @@ communitySchema.pre("save", function (next) {
   try {
     // 1. Generate code if not set
     if (!this.code) {
-      // Take first 5 letters from community name
-      let namePrefix = this.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase();
+      // Take first 2-3 letters from community name
+      let namePrefix = this.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase();
 
-      // If less than 5 letters, pad with additional letters or fallback
-      if (namePrefix.length < 5) {
-        // Try to get more letters from the name
+      // If less than 2 letters, pad with additional letters or fallback
+      if (namePrefix.length < 2) {
         const allLetters = this.name.replace(/[^a-zA-Z]/g, '').toUpperCase();
-
-        if (allLetters.length >= 5) {
-          namePrefix = allLetters.slice(0, 5);
+        if (allLetters.length >= 2) {
+          namePrefix = allLetters.slice(0, 2);
+        } else if (allLetters.length === 1) {
+          namePrefix = allLetters + 'C';
         } else {
-          // Pad with repeated letters or use COMMU as fallback
-          while (namePrefix.length < 5 && allLetters.length > 0) {
-            namePrefix += allLetters.charAt(namePrefix.length % allLetters.length);
-          }
-
-          // Final fallback if still less than 5
-          if (namePrefix.length < 5) {
-            namePrefix = (namePrefix + 'COMMU').slice(0, 5);
-          }
+          namePrefix = 'CM';
         }
       }
 
-      // Generate unique code with timestamp
+      // Generate alphanumeric characters
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const specialChars = '!@#$%&*';
+
+      // Generate 5-6 random alphanumeric characters
+      let randomPart = '';
+      for (let i = 0; i < 6; i++) {
+        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Add 1-2 special characters
+      let specialPart = '';
+      for (let i = 0; i < 2; i++) {
+        specialPart += specialChars.charAt(Math.floor(Math.random() * specialChars.length));
+      }
+
+      // Add timestamp-based component (2 chars)
       const timestamp = Date.now().toString(36).slice(-2).toUpperCase();
-      const random = Math.random().toString(36).slice(-2).toUpperCase();
-      this.code = `${namePrefix}${timestamp}${random}`;
+
+      // Combine all parts and shuffle to make it more complex
+      // Format: namePrefix(2) + randomPart(6) + specialPart(2) + timestamp(2) = 12 chars
+      const codeParts = (namePrefix + randomPart + specialPart + timestamp).split('');
+
+      // Shuffle the middle section to make it unpredictable
+      for (let i = 2; i < codeParts.length - 2; i++) {
+        const j = 2 + Math.floor(Math.random() * (codeParts.length - 4));
+        [codeParts[i], codeParts[j]] = [codeParts[j], codeParts[i]];
+      }
+
+      this.code = codeParts.join('');
     }
 
     next();
