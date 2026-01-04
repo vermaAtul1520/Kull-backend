@@ -35,4 +35,10 @@ const appealSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+appealSchema.index({ community: 1 });
+appealSchema.index({ user: 1 });
+appealSchema.index({ status: 1 });
+appealSchema.index({ community: 1, status: 1 });
+appealSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Appeal", appealSchema);

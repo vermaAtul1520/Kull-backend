@@ -19,29 +19,20 @@ const isAuthenticated = async (req, res, next) => {
     // Decode and verify token using secret key
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
 
-    // Optional but recommended: fetch fresh user data from DB
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return res.status(401).json({ 
-        success: false,
-        message: "Invalid token user not found" 
-      });
-    }
-
-    // Attach user info to req for access in controller
+    // Use JWT payload directly instead of DB query for better performance
+    // Only query DB for critical operations that need fresh data
     req.user = {
-      id: user._id,
-      role: user.role,
-      roleInCommunity:user.roleInCommunity,
-      community: user.community,
-      // You can add more fields here as needed
+      id: decoded.id,
+      role: decoded.role,
+      roleInCommunity: decoded.roleInCommunity,
+      community: decoded.community,
     };
+    
     // Add convenience booleans
-    req.user.isSuperAdmin = user.role === "superadmin";
+    req.user.isSuperAdmin = decoded.role === "superadmin";
     req.user.isCommunityAdmin =
-      user.roleInCommunity === "admin" &&
-      user.community &&
-      user.community._id.toString() === decoded.community?.toString();
+      decoded.roleInCommunity === "admin" &&
+      decoded.community;
 
     next();
   } catch (err) {

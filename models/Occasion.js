@@ -116,6 +116,17 @@ const OccasionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+OccasionSchema.index({ community: 1 });
+OccasionSchema.index({ createdBy: 1 });
+OccasionSchema.index({ occasionType: 1 });
+OccasionSchema.index({ category: 1 });
+OccasionSchema.index({ createdAt: -1 });
+
+OccasionCategorySchema.index({ community: 1 });
+OccasionCategorySchema.index({ occasionType: 1 });
+
+OccasionContentSchema.index({ occasion: 1 });
+
 // Export models
 const OccasionContent = mongoose.model("OccasionContent", OccasionContentSchema);
 const OccasionCategory = mongoose.model("OccasionCategory", OccasionCategorySchema);

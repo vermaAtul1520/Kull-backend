@@ -139,7 +139,7 @@ const communitySchema = new mongoose.Schema({
 });
 
 
-communitySchema.pre("save", async function (next) {
+communitySchema.pre("save", function (next) {
   try {
     // 1. Generate code if not set
     if (!this.code) {
@@ -166,29 +166,10 @@ communitySchema.pre("save", async function (next) {
         }
       }
 
-      let attempts = 1;
-      let generatedCode;
-
-      // Try to generate a unique code starting from 01, 02, 03...
-      do {
-        const suffix = attempts.toString().padStart(2, '0'); // 01, 02, 03, etc.
-        generatedCode = `${namePrefix}${suffix}`;
-
-        // Check if this code already exists
-        const existingCommunity = await mongoose.model('Community').findOne({ code: generatedCode });
-        if (!existingCommunity) {
-          this.code = generatedCode;
-          break;
-        }
-
-        attempts++;
-      } while (attempts <= 99); // Max 99 attempts (01-99)
-
-      // Fallback: if still no unique code found after 99 attempts
-      if (!this.code) {
-        const timestamp = Date.now().toString().slice(-2);
-        this.code = `${namePrefix}${timestamp}`;
-      }
+      // Generate unique code with timestamp
+      const timestamp = Date.now().toString(36).slice(-2).toUpperCase();
+      const random = Math.random().toString(36).slice(-2).toUpperCase();
+      this.code = `${namePrefix}${timestamp}${random}`;
     }
 
     next();
@@ -196,6 +177,10 @@ communitySchema.pre("save", async function (next) {
     next(err);
   }
 });
+
+communitySchema.index({ code: 1 });
+communitySchema.index({ name: 1 });
+communitySchema.index({ createdAt: -1 });
 
 const CommunityConfiguration = mongoose.model("CommunityConfiguration", communityConfigurationSchema);
 const Community = mongoose.model("Community", communitySchema);

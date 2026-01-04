@@ -87,7 +87,7 @@ class DukaanController extends BaseController {
 
       // Check permissions
       if (!req.user.isSuperAdmin &&
-          existingDukaan.community.toString() !== req.user.community.toString()) {
+          existingDukaan.community.toString() !== req.user.community._id.toString()) {
         return res.status(403).json({
           success: false,
           message: "You can only update dukaans in your community",
@@ -169,7 +169,7 @@ class DukaanController extends BaseController {
           });
         }
 
-        if (dukaan.community.toString() !== req.user.community.toString()) {
+        if (dukaan.community.toString() !== req.user.community._id.toString()) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to delete Dukaan outside your community",

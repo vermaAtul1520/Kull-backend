@@ -25,4 +25,7 @@ const JobPostSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+JobPostSchema.index({ community: 1 });
+JobPostSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("JobPost", JobPostSchema);

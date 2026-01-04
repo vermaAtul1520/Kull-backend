@@ -22,4 +22,8 @@ const donationSchema = new mongoose.Schema({
   timestamps: true
 });
 
+donationSchema.index({ communityId: 1 });
+donationSchema.index({ createdBy: 1 });
+donationSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Donation", donationSchema);

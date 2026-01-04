@@ -58,7 +58,7 @@ exports.createPost = async (req, res) => {
     }
 
     // Authorization: Non-superadmin users can only post to their own community
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -100,7 +100,7 @@ exports.getPostsByCommunity = async (req, res) => {
     const { role, roleInCommunity, community } = req.user;
 
     // Authorization: Non-superadmin users can only view their community's posts
-    if (role !== 'superadmin' && community.toString() !== communityId) {
+    if (role !== 'superadmin' && community._id.toString() !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -201,7 +201,7 @@ exports.getSinglePost = async (req, res) => {
     }
 
     // Authorization: Non-superadmin users can only view posts from their community
-    if (role !== 'superadmin' && post.community._id.toString() !== community.toString()) {
+    if (role !== 'superadmin' && post.community._id.toString() !== community._id.toString()) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -242,7 +242,7 @@ exports.updatePost = async (req, res) => {
     // Authorization
     const isAuthor = req.user.id === post.author.toString();
     const isSuperAdmin = req.user.role === "superadmin";
-    const isCommunityAdmin = req.user.community?.toString() === post.community.toString() && req.user.roleInCommunity === "admin";
+    const isCommunityAdmin = req.user.community?._id.toString() === post.community.toString() && req.user.roleInCommunity === "admin";
 
     if (!isAuthor && !isSuperAdmin && !isCommunityAdmin) {
       return res.status(403).json({ 
@@ -292,7 +292,7 @@ exports.deletePost = async (req, res) => {
     const isSuperAdmin = req.user.role === "superadmin";
     const isCommunityAdmin =
       req.user.roleInCommunity === "admin" &&
-      req.user.community?.toString() === post.community.toString();
+      req.user.community?._id.toString() === post.community.toString();
 
     // Authorization check
     if (!isAuthor && !isSuperAdmin && !isCommunityAdmin) {

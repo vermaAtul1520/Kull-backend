@@ -4,9 +4,9 @@ const mongoose = require("mongoose");
 const generateUserCode = function() {
   const firstInitial = this.firstName ? this.firstName.charAt(0).toUpperCase() : 'U';
   const lastInitial = this.lastName ? this.lastName.charAt(0).toUpperCase() : 'U';
-  const phoneDigits = this.phone ? this.phone.slice(-4) : Math.floor(1000 + Math.random() * 9000).toString();
-  const randomDigits = Math.floor(10 + Math.random() * 90); // 2 random digits
-  return `${firstInitial}${lastInitial}${phoneDigits}${randomDigits}`;
+  const timestamp = Date.now().toString(36).slice(-4).toUpperCase();
+  const random = Math.random().toString(36).slice(-3).toUpperCase();
+  return `${firstInitial}${lastInitial}${timestamp}${random}`;
 };
 
 const userSchema = new mongoose.Schema({
@@ -123,27 +123,21 @@ const userSchema = new mongoose.Schema({
 });
 
 // Pre-save hook to generate code if not provided
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', function(next) {
   if (!this.code) {
-    let attempts = 0;
-    let codeGenerated = false;
-
-    while (!codeGenerated && attempts < 10) {
-      this.code = generateUserCode.call(this);
-
-      // Check if code already exists
-      const existingUser = await mongoose.model('User').findOne({ code: this.code });
-      if (!existingUser) {
-        codeGenerated = true;
-      }
-      attempts++;
-    }
-
-    if (!codeGenerated) {
-      return next(new Error('Unable to generate unique user code'));
-    }
+    this.code = generateUserCode.call(this);
   }
   next();
 });
+
+userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ code: 1 });
+userSchema.index({ community: 1 });
+userSchema.index({ communityStatus: 1 });
+userSchema.index({ roleInCommunity: 1 });
+userSchema.index({ community: 1, communityStatus: 1 });
+userSchema.index({ community: 1, roleInCommunity: 1 });
+userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("User", userSchema);
