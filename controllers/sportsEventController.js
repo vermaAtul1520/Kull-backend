@@ -1,14 +1,19 @@
-const SportsEvent = require('../models/SportsEvent');
-const BaseController = require("../utils/baseController");
+const { getSportsEventService } = require("../services/sportsEventService");
+const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
 
-class SportsEventController extends BaseController {
-    constructor() {
-        super(SportsEvent);
-    }
+const sportsEventService = getSportsEventService();
+const communityService = getCommunityService();
+const userService = getUserService();
+
+class SportsEventController {
 
     // Create SportsEvent
     createSportsEvent = async (req, res, next) => {
         try {
+            let communityId = req.user.community;
+            let createdBy = req.user.id;
+
             if (req.user.isSuperAdmin) {
                 // superadmin must explicitly pass community
                 if (!req.body.community) {
@@ -17,7 +22,8 @@ class SportsEventController extends BaseController {
                         message: "Community is required when creating SportsEvent as super admin",
                     });
                 }
-                req.body.createdBy = req.body.createdBy || req.user.id;
+                communityId = req.body.community;
+                createdBy = req.body.createdBy || req.user.id;
             } else {
                 // community admin or normal user
                 if (!req.user.community) {
@@ -26,17 +32,11 @@ class SportsEventController extends BaseController {
                         message: "User must be assigned to a community to create sports events",
                     });
                 }
-                req.body.community = req.user.community;
-                req.body.createdBy = req.user.id;
             }
 
-            const sportsEvent = await this.model.create(req.body);
+            if (typeof communityId === 'object') communityId = communityId._id.toString();
 
-            // Populate the created sports event
-            await sportsEvent.populate([
-                { path: 'createdBy', select: 'name email' },
-                { path: 'community', select: 'name' }
-            ]);
+            const sportsEvent = await sportsEventService.createSportsEvent(req.body, communityId, createdBy);
 
             res.status(201).json({ success: true, data: sportsEvent });
         } catch (err) {
@@ -47,28 +47,58 @@ class SportsEventController extends BaseController {
     // Get all SportsEvents
     getAllSportsEvents = async (req, res, next) => {
         try {
-            if (req.user.isCommunityAdmin) {
-                req.parsedQuery.filter = {
-                    ...req.parsedQuery.filter,
-                    community: req.user.community,
-                };
-            } else if (!req.user.isSuperAdmin) {
-                // Regular users see all sports events in their community
-                req.parsedQuery.filter = {
-                    ...req.parsedQuery.filter,
-                    community: req.user.community,
-                };
+            let events = [];
+            const limit = parseInt(req.query.limit) || 20;
+
+            if (!req.user.community && !req.user.isSuperAdmin) {
+                return res.status(403).json({ success: false, message: "Community access required" });
             }
-            return this.getAll(req, res, next);
+
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) {
+                commId = req.query.community;
+            } else if (req.user.isSuperAdmin) {
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
+
+            if (typeof commId === 'object') commId = commId._id.toString();
+
+            events = await sportsEventService.getSportsEventsByCommunity(commId, { limit });
+
+            // Populate
+            await this.populateEvents(events);
+
+            res.status(200).json({ success: true, count: events.length, data: events });
         } catch (err) {
             next(err);
         }
     };
 
+    // Helper to populate
+    async populateEvents(events) {
+        if (!events || events.length === 0) return;
+        const userIds = events.map(e => e.createdBy).filter(id => id);
+
+        const users = await userService.getManyByIds(userIds);
+        const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+        events.forEach(e => {
+            if (e.createdBy && userMap[e.createdBy]) {
+                e.createdBy = {
+                    _id: userMap[e.createdBy].id || userMap[e.createdBy]._id,
+                    name: `${userMap[e.createdBy].firstName || ''} ${userMap[e.createdBy].lastName || ''}`.trim(),
+                    email: userMap[e.createdBy].email
+                };
+            }
+        });
+    }
+
     // Get single SportsEvent
-    getSportsEventById = (req, res, next) => {
+    getSportsEventById = async (req, res, next) => {
         try {
-            return this.getOne(req, res, next);
+            const event = await sportsEventService.getSportsEventById(req.params.id);
+            if (!event) return res.status(404).json({ success: false, message: "SportsEvent not found" });
+            res.status(200).json({ success: true, data: event });
         } catch (err) {
             next(err);
         }
@@ -77,14 +107,17 @@ class SportsEventController extends BaseController {
     // Update SportsEvent
     updateSportsEvent = async (req, res, next) => {
         try {
-            const sportsEvent = await this.model.findById(req.params.id);
-            if (!sportsEvent) {
+            const event = await sportsEventService.getSportsEventById(req.params.id);
+            if (!event) {
                 return res.status(404).json({ success: false, message: "SportsEvent not found" });
             }
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (sportsEvent.community.toString() !== req.user.community._id.toString()) {
+                const eCommId = event.communityId || event.community;
+                const uCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+                if (eCommId.toString() !== uCommId) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to update SportsEvent outside your community",
@@ -96,7 +129,8 @@ class SportsEventController extends BaseController {
             delete req.body.community;
             delete req.body.createdBy;
 
-            return this.updateOne(req, res, next);
+            const updated = await sportsEventService.updateSportsEvent(req.params.id, req.body);
+            res.status(200).json({ success: true, data: updated });
         } catch (err) {
             next(err);
         }
@@ -105,14 +139,17 @@ class SportsEventController extends BaseController {
     // Delete SportsEvent
     deleteSportsEvent = async (req, res, next) => {
         try {
-            const sportsEvent = await this.model.findById(req.params.id);
-            if (!sportsEvent) {
+            const event = await sportsEventService.getSportsEventById(req.params.id);
+            if (!event) {
                 return res.status(404).json({ success: false, message: "SportsEvent not found" });
             }
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (sportsEvent.community.toString() !== req.user.community._id.toString()) {
+                const eCommId = event.communityId || event.community;
+                const uCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+                if (eCommId.toString() !== uCommId) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to delete SportsEvent outside your community",
@@ -120,9 +157,9 @@ class SportsEventController extends BaseController {
                 }
             }
 
-            // Soft delete by setting isActive to false
-            // req.body = { isActive: false };
-            return this.deleteOne(req, res, next);
+            // Hard delete
+            await sportsEventService.deleteSportsEvent(req.params.id);
+            res.status(200).json({ success: true, message: "Deleted" });
         } catch (err) {
             next(err);
         }
@@ -133,27 +170,21 @@ class SportsEventController extends BaseController {
         try {
             const { limit = 5 } = req.query;
 
-            let filter = { isActive: true, isUpcoming: true };
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                filter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                filter.createdBy = req.user.id;
-            }
+            if (!commId) return res.status(200).json({ success: true, data: [] });
 
-            const sportsEvents = await this.model.find(filter)
-                .populate([
-                    { path: 'createdBy', select: 'name email' },
-                    { path: 'community', select: 'name' }
-                ])
-                .sort({ eventDate: 1 })
-                .limit(parseInt(limit));
+            const events = await sportsEventService.getUpcomingSportsEvents(commId);
+            await this.populateEvents(events);
+
+            const limited = events.slice(0, parseInt(limit));
 
             res.status(200).json({
                 success: true,
-                data: sportsEvents,
-                count: sportsEvents.length
+                data: limited,
+                count: limited.length
             });
         } catch (err) {
             next(err);
@@ -166,36 +197,28 @@ class SportsEventController extends BaseController {
             const { organizer } = req.params;
             const { page = 1, limit = 10 } = req.query;
 
-            let filter = {
-                organizer: new RegExp(organizer, 'i'),
-                isActive: true
-            };
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (!commId && !req.user.isSuperAdmin) return res.status(403).json({ message: "Community required" });
+            if (!commId) return res.status(200).json({ success: true, data: [] });
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                filter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                filter.createdBy = req.user.id;
-            }
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            const sportsEvents = await this.model.find(filter)
-                .populate([
-                    { path: 'createdBy', select: 'name email' },
-                    { path: 'community', select: 'name' }
-                ])
-                .sort({ createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(parseInt(limit));
+            const events = await sportsEventService.searchByOrganizer(commId, organizer);
+            await this.populateEvents(events);
 
-            const total = await this.model.countDocuments(filter);
+            // Pagination
+            const startIndex = (page - 1) * limit;
+            const endIndex = page * limit;
+            const paginated = events.slice(startIndex, endIndex);
 
             res.status(200).json({
                 success: true,
-                data: sportsEvents,
+                data: paginated,
                 pagination: {
                     currentPage: parseInt(page),
-                    totalPages: Math.ceil(total / limit),
-                    totalItems: total,
+                    totalPages: Math.ceil(events.length / limit),
+                    totalItems: events.length,
                     itemsPerPage: parseInt(limit)
                 }
             });
@@ -207,55 +230,17 @@ class SportsEventController extends BaseController {
     // Get sports events statistics
     getSportsEventsStats = async (req, res, next) => {
         try {
-            let matchFilter = { isActive: true };
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                matchFilter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                matchFilter.createdBy = req.user.id;
-            }
+            if (!commId) return res.status(200).json({ success: true, data: {} });
 
-            const totalEvents = await this.model.countDocuments(matchFilter);
-
-            const upcomingEvents = await this.model.countDocuments({
-                ...matchFilter,
-                isUpcoming: true
-            });
-
-            const eventTypeStats = await this.model.aggregate([
-                { $match: matchFilter },
-                { $group: { _id: '$eventType', count: { $sum: 1 } } },
-                { $sort: { count: -1 } }
-            ]);
-
-            const categoryStats = await this.model.aggregate([
-                { $match: matchFilter },
-                { $group: { _id: '$category', count: { $sum: 1 } } },
-                { $sort: { count: -1 } }
-            ]);
-
-            let communityStats = [];
-            if (req.user.isSuperAdmin) {
-                communityStats = await this.model.aggregate([
-                    { $match: { ...matchFilter, community: { $exists: true } } },
-                    { $group: { _id: '$community', count: { $sum: 1 } } },
-                    { $lookup: { from: 'communities', localField: '_id', foreignField: '_id', as: 'communityInfo' } },
-                    { $unwind: '$communityInfo' },
-                    { $project: { _id: 1, count: 1, name: '$communityInfo.name' } },
-                    { $sort: { count: -1 } }
-                ]);
-            }
+            const stats = await sportsEventService.getSportsEventStats(commId);
 
             res.status(200).json({
                 success: true,
-                data: {
-                    totalEvents,
-                    upcomingEventsCount: upcomingEvents,
-                    eventTypeBreakdown: eventTypeStats,
-                    categoryBreakdown: categoryStats,
-                    ...(req.user.isSuperAdmin && { communityBreakdown: communityStats })
-                }
+                data: stats
             });
         } catch (err) {
             next(err);

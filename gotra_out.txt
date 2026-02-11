@@ -1,0 +1,18 @@
+Invoking lambda.handler (nodejs20.x)
+Local image is up-to-date
+Using local image: public.ecr.aws/lambda/nodejs:20-rapid-x86_64.
+
+Mounting /Users/rishabhpal1509/Desktop/Kull-backend/.aws-sam/build/KullFunction as /var/task:ro,delegated, inside runtime container
+SAM_CONTAINER_ID: f3f760e5be8f20e204563cff8f17e31dc1dd6000b71185049a0ffafa475d617c
+START RequestId: 34d18296-bafa-4aa2-b820-223a57448e4e Version: $LATEST
+2026-02-07T20:16:03.775Z	undefined	INFO	✅ Email Service: SendGrid initialized
+2026-02-07T20:16:03.800Z	undefined	INFO	✅ Email Service: Nodemailer (Gmail) initialized
+2026-02-07T20:16:04.105Z	undefined	INFO	DynamoDB connected successfully
+2026-02-07T20:16:04.106Z	undefined	INFO	Region: ap-south-1, Table Prefix: kull-prod-
+2026-02-07T20:16:04.106Z	undefined	INFO	Environment: AWS Lambda
+2026-02-07T20:16:04.111Z	undefined	INFO	Database initialized: dynamodb
+2026-02-07T20:16:04.111Z	undefined	INFO	Database type: dynamodb
+[0mGET /api/communities/TE!F4*RNPV7Z/gotraDetail [32m200[0m 498.658 ms - 1588[0m
+END RequestId: d82d9832-ae90-4574-87f2-c90601f51afc
+REPORT RequestId: d82d9832-ae90-4574-87f2-c90601f51afc	Init Duration: 0.30 ms	Duration: 2271.89 ms	Billed Duration: 2272 ms	Memory Size: 512 MB	Max Memory Used: 512 MB	
+{"statusCode": 200, "body": "{\"success\":true,\"data\":{\"gotra\":[{\"name\":\"Aheria\",\"subgotra\":[]},{\"name\":\"Banjara\",\"subgotra\":[]},{\"name\":\"Bawaria\",\"subgotra\":[]},{\"name\":\"Bhil\",\"subgotra\":[]},{\"name\":\"Chohra (Chuhra )\",\"subgotra\":[]},{\"name\":\"Dom\",\"subgotra\":[]},{\"name\":\"Kanjar or Giarah\",\"subgotra\":[]},{\"name\":\"Khatik (Khatic)\",\"subgotra\":[]},{\"name\":\"Mallah\",\"subgotra\":[]},{\"name\":\"Nat (Rana) Badi\",\"subgotra\":[]},{\"name\":\"Pasi (pasia)\",\"subgotra\":[]},{\"name\":\"Pernas\",\"subgotra\":[]},{\"name\":\"Bairagi\",\"subgotra\":[]},{\"name\":\"Sansi\",\"subgotra\":[\"Halwan\",\"सवनिया\\tSavaniya\",\"सलोगिया\\tSalogiya\",\"सलोगिया\\tSalogiya\",\"तमायची\\tTamaychi\",\"नन्द\\tNand\",\"नाहड़िया\\tNahadiya\",\"झावरिया Jhawariya\",\"अथवा\\tAthwa\",\"घिरिया\\tGhiriya\",\"बलान\\tBalan\",\"लुलिया\\tLuliya\",\"चतरा\\tChatra\",\"मुलकिया\\tMulkiya\",\"अडवाण\\tAdvaan\",\"जसवाण\\tJasvaan\",\"खीमलाण\\tKhimlaan\",\"गोमवाण\\tGomvaan\",\"बाडू\\tBadu\",\"रोला\\tRola\",\"वीड़ा\\tVeeda\"]},{\"name\":\"Bhedkut\",\"subgotra\":[\"नन्दा (NANDA)\",\"धिरिया (DHIRIYA)\",\"सुभानिया (SUBHANIYA)\",\"सेवला (SEWLA)\",\"नहारिया (NAHARIYA)\",\"नायका (NAYKA)\",\"कलजी (KALJI)\",\"झावरिया (JHAWARIYA)\",\"तमैची (TAMAICHI)\",\"भाना (BHANA)\",\"घमंडी (GHAMANDI)\",\"पोपट (POPAT)\",\"साधा (SADHA)\",\"माछर (MACHAR)\",\"घासी (GHASI)\",\"दुनियांन (DUNIYAN)\",\"Nathal\"]}]}}", "multiValueHeaders": {"content-security-policy": ["default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests"], "cross-origin-opener-policy": ["same-origin"], "cross-origin-resource-policy": ["same-origin"], "origin-agent-cluster": ["?1"], "referrer-policy": ["no-referrer"], "strict-transport-security": ["max-age=15552000; includeSubDomains"], "x-content-type-options": ["nosniff"], "x-dns-prefetch-control": ["off"], "x-download-options": ["noopen"], "x-frame-options": ["SAMEORIGIN"], "x-permitted-cross-domain-policies": ["none"], "x-xss-protection": ["0"], "vary": ["Origin"], "access-control-allow-credentials": ["true"], "content-type": ["application/json; charset=utf-8"], "content-length": ["1588"], "etag": ["W/\"634-8wpElNkNXZfkHuoyU2cPHaPNqzk\""]}, "isBase64Encoded": false}

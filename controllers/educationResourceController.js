@@ -1,14 +1,19 @@
-const EducationResource = require("../models/EducationResource");
-const BaseController = require("../utils/baseController");
+const { getEducationService } = require("../services/educationService");
+const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
 
-class EducationResourceController extends BaseController {
-  constructor() {
-    super(EducationResource);
-  }
+const educationService = getEducationService();
+const communityService = getCommunityService();
+const userService = getUserService();
+
+class EducationResourceController {
 
   // Create Resource
   createResource = async (req, res, next) => {
     try {
+      let communityId = req.user.community;
+      let createdBy = req.user.id;
+
       if (req.user.isSuperAdmin) {
         if (!req.body.community) {
           return res.status(400).json({
@@ -17,13 +22,18 @@ class EducationResourceController extends BaseController {
               "Community is required when creating education resource as super admin",
           });
         }
-        req.body.createdBy = req.body.createdBy || req.user.id;
-      } else {
-        req.body.community = req.user.community;
-        req.body.createdBy = req.user.id;
+        communityId = req.body.community;
+        createdBy = req.body.createdBy || req.user.id;
       }
 
-      const resource = await this.model.create(req.body);
+      // normalize ids
+      if (typeof communityId === 'object') communityId = communityId._id.toString();
+
+      const resourceData = {
+        ...req.body,
+      };
+
+      const resource = await educationService.createResource(resourceData, communityId, createdBy);
       res.status(201).json({ success: true, data: resource });
     } catch (err) {
       next(err);
@@ -33,33 +43,54 @@ class EducationResourceController extends BaseController {
   // Get all Resources
   getAllResources = async (req, res, next) => {
     try {
+      let resources = [];
+      const limit = parseInt(req.query.limit) || 20;
+
       if (req.user.isSuperAdmin) {
-        // SuperAdmin: can see all educational resources across all communities
-        // No additional filter needed
+        const { community } = req.query;
+        if (community) {
+          resources = await educationService.getResourcesByCommunity(community, { limit });
+        } else {
+          resources = [];
+        }
       } else {
-        // Community Admin and Regular Users: see all educational resources in their community
-        if (!req.user.community) {
+        const userCommunity = req.user.community;
+        if (!userCommunity) {
           return res.status(403).json({
             success: false,
             message: "Community access is required to view educational resources",
           });
         }
-
-        req.parsedQuery.filter = {
-          ...req.parsedQuery.filter,
-          community: req.user.community,
-        };
+        const userCommId = userCommunity._id || userCommunity.id || userCommunity;
+        resources = await educationService.getResourcesByCommunity(String(userCommId), { limit });
       }
-      return this.getAll(req, res, next);
+
+      // Populate createdBy
+      const userIds = resources.map(r => r.createdBy);
+      const users = await userService.getManyByIds(userIds);
+      const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+      const populated = resources.map(r => ({
+        ...r,
+        createdBy: userMap[r.createdBy] ? {
+          _id: userMap[r.createdBy].id || userMap[r.createdBy]._id,
+          firstName: userMap[r.createdBy].firstName,
+          lastName: userMap[r.createdBy].lastName
+        } : r.createdBy
+      }));
+
+      return res.status(200).json({ success: true, count: populated.length, data: populated });
     } catch (err) {
       next(err);
     }
   };
 
   // Get single Resource
-  getResource = (req, res, next) => {
+  getResource = async (req, res, next) => {
     try {
-      return this.getOne(req, res, next);
+      const resource = await educationService.getResourceById(req.params.id);
+      if (!resource) return res.status(404).json({ success: false, message: "Not found" });
+      res.status(200).json({ success: true, data: resource });
     } catch (err) {
       next(err);
     }
@@ -68,7 +99,7 @@ class EducationResourceController extends BaseController {
   // Update Resource (only in own community unless superadmin)
   updateResource = async (req, res, next) => {
     try {
-      const resource = await this.model.findById(req.params.id);
+      const resource = await educationService.getResourceById(req.params.id);
       if (!resource) {
         return res
           .status(404)
@@ -76,7 +107,10 @@ class EducationResourceController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (resource.community.toString() !== req.user.community._id.toString()) {
+        const resCommId = resource.communityId || resource.community;
+        const userCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+        if (resCommId.toString() !== userCommId) {
           return res.status(403).json({
             success: false,
             message:
@@ -85,7 +119,8 @@ class EducationResourceController extends BaseController {
         }
       }
 
-      return this.updateOne(req, res, next);
+      const updated = await educationService.updateResource(req.params.id, req.body);
+      res.status(200).json({ success: true, data: updated });
     } catch (err) {
       next(err);
     }
@@ -94,7 +129,7 @@ class EducationResourceController extends BaseController {
   // Delete Resource (restricted same as update)
   deleteResource = async (req, res, next) => {
     try {
-      const resource = await this.model.findById(req.params.id);
+      const resource = await educationService.getResourceById(req.params.id);
       if (!resource) {
         return res
           .status(404)
@@ -102,7 +137,10 @@ class EducationResourceController extends BaseController {
       }
 
       if (!req.user.isSuperAdmin) {
-        if (resource.community.toString() !== req.user.community._id.toString()) {
+        const resCommId = resource.communityId || resource.community;
+        const userCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+        if (resCommId.toString() !== userCommId) {
           return res.status(403).json({
             success: false,
             message:
@@ -111,7 +149,8 @@ class EducationResourceController extends BaseController {
         }
       }
 
-      return this.deleteOne(req, res, next);
+      await educationService.deleteResource(req.params.id);
+      res.status(200).json({ success: true, message: "Deleted" });
     } catch (err) {
       next(err);
     }

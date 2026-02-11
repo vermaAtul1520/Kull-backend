@@ -1,26 +1,24 @@
-// controllers/dukaanController.js
-const Dukaan = require("../models/Dukaan");
-const BaseController = require("../utils/baseController");
+const { getDukaanService } = require("../services/dukaanService");
+const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
 
-class DukaanController extends BaseController {
-  constructor() {
-    super(Dukaan);
-  }
+const dukaanService = getDukaanService();
+const communityService = getCommunityService();
+const userService = getUserService();
+
+class DukaanController {
 
   // Create Dukaan
   createDukaan = async (req, res, next) => {
     try {
-      // Extract and validate new fields
       const {
         shopName,
         description,
         banner,
         url,
-        isActive = true,
-        ...otherFields
+        isActive = true
       } = req.body;
 
-      // Validate required fields
       if (!shopName) {
         return res.status(400).json({
           success: false,
@@ -28,20 +26,22 @@ class DukaanController extends BaseController {
         });
       }
 
+      let communityId = req.user.community;
+      let ownerId = req.user.id;
+
       if (req.user.isSuperAdmin) {
-        // superadmin must explicitly pass community
         if (!req.body.community) {
           return res.status(400).json({
             success: false,
             message: "Community is required when creating Dukaan as super admin",
           });
         }
-        req.body.createdBy = req.body.createdBy || req.user.id;
-      } else {
-        // community admin or normal user
-        req.body.community = req.user.community;
-        req.body.createdBy = req.user.id;
+        communityId = req.body.community;
+        ownerId = req.body.createdBy || req.user.id;
       }
+
+      // normalize ids
+      if (typeof communityId === 'object') communityId = communityId._id.toString();
 
       // Prepare dukaan data with new fields
       const dukaanData = {
@@ -53,7 +53,7 @@ class DukaanController extends BaseController {
         isActive,
       };
 
-      const dukaan = await this.model.create(dukaanData);
+      const dukaan = await dukaanService.createDukaan(dukaanData, communityId, ownerId);
       res.status(201).json({
         success: true,
         message: "Dukaan created successfully",
@@ -68,26 +68,19 @@ class DukaanController extends BaseController {
   updateDukaan = async (req, res, next) => {
     try {
       const { id } = req.params;
-      const {
-        shopName,
-        description,
-        banner,
-        url,
-        isActive,
-      } = req.body;
+      const { shopName, description, banner, url, isActive } = req.body;
 
-      // Find the dukaan first
-      const existingDukaan = await this.model.findById(id);
+      const existingDukaan = await dukaanService.getDukaanById(id);
       if (!existingDukaan) {
-        return res.status(404).json({
-          success: false,
-          message: "Dukaan not found",
-        });
+        return res.status(404).json({ success: false, message: "Dukaan not found" });
       }
 
       // Check permissions
-      if (!req.user.isSuperAdmin &&
-          existingDukaan.community.toString() !== req.user.community._id.toString()) {
+      // assuming community is string in dynamodb or object in mongo
+      const dukaanCommId = existingDukaan.communityId || existingDukaan.community;
+      const userCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+      if (!req.user.isSuperAdmin && dukaanCommId.toString() !== userCommId) {
         return res.status(403).json({
           success: false,
           message: "You can only update dukaans in your community",
@@ -102,11 +95,11 @@ class DukaanController extends BaseController {
       if (url !== undefined) updateData.url = url?.trim();
       if (isActive !== undefined) updateData.isActive = isActive;
 
-      const updatedDukaan = await this.model.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      // Also allow updating other fields from body if needed, but keeping it strict as per original logic?
+      // Original logic blindly merged others? No, it extracted specific fields in 'create' but 'update' only extracted specific fields.
+      // So strict update is good.
+
+      const updatedDukaan = await dukaanService.updateDukaan(id, updateData);
 
       res.status(200).json({
         success: true,
@@ -121,62 +114,84 @@ class DukaanController extends BaseController {
   // Get all Dukaans
   getAllDukaans = async (req, res, next) => {
     try {
+      let dukaans = [];
+      const limit = parseInt(req.query.limit) || 20;
+
       if (req.user.isSuperAdmin) {
-        // SuperAdmin: can see all dukaans across all communities
-        // No additional filter needed
+        // See all? Not efficient.
+        // Or filter by community if provided?
+        const { community } = req.query;
+        if (community) {
+          dukaans = await dukaanService.getDukaansByCommunity(community, { limit });
+        } else {
+          dukaans = []; // Avoiding full scan
+        }
       } else {
-        // Community Admin and Regular Users: see all dukaans in their community
-        if (!req.user.community) {
+        const userCommunity = req.user.community;
+        if (!userCommunity) {
           return res.status(403).json({
             success: false,
             message: "Community access is required to view dukaans",
           });
         }
-
-        req.parsedQuery.filter = {
-          ...req.parsedQuery.filter,
-          community: req.user.community,
-        };
+        const userCommId = userCommunity._id || userCommunity.id || userCommunity;
+        dukaans = await dukaanService.getDukaansByCommunity(String(userCommId), { limit });
       }
-      return this.getAll(req, res, next);
+
+      // Populate Owner/Community?
+      // Dukaans have 'owner' field? Original code: req.body.createdBy = req.user.id
+      // Repository uses 'owner'.
+
+      const ownerIds = dukaans.map(d => d.owner || d.createdBy);
+      const users = await userService.getManyByIds(ownerIds);
+      const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+      const populated = dukaans.map(d => ({
+        ...d,
+        owner: userMap[d.owner || d.createdBy] ? {
+          _id: userMap[d.owner || d.createdBy].id || userMap[d.owner || d.createdBy]._id,
+          firstName: userMap[d.owner || d.createdBy].firstName,
+          lastName: userMap[d.owner || d.createdBy].lastName
+        } : (d.owner || d.createdBy)
+      }));
+
+      res.status(200).json({ success: true, count: populated.length, data: populated });
     } catch (err) {
       next(err);
     }
   };
 
   // Get single Dukaan
-  getDukaan = (req, res, next) => {
+  getDukaan = async (req, res, next) => {
     try {
-      return this.getOne(req, res, next);
+      const dukaan = await dukaanService.getDukaanById(req.params.id);
+      if (!dukaan) return res.status(404).json({ success: false, message: "Not found" });
+      res.status(200).json({ success: true, data: dukaan });
     } catch (err) {
       next(err);
     }
   };
 
-
-
   // Delete Dukaan
   deleteDukaan = async (req, res, next) => {
     try {
-      // Restriction logic
-      if (!req.user.isSuperAdmin) {
-        // Community admin or normal user - check if dukaan belongs to their community
-        const dukaan = await this.model.findById(req.params.id);
-        if (!dukaan) {
-          return res.status(404).json({
-            success: false,
-            message: "Dukaan not found",
-          });
-        }
+      const dukaan = await dukaanService.getDukaanById(req.params.id);
+      if (!dukaan) return res.status(404).json({ success: false, message: "Not found" });
 
-        if (dukaan.community.toString() !== req.user.community._id.toString()) {
+      if (!req.user.isSuperAdmin) {
+        const dukaanCommId = dukaan.communityId || dukaan.community;
+        const userCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+        if (dukaanCommId.toString() !== userCommId) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to delete Dukaan outside your community",
           });
         }
       }
-      return this.deleteOne(req, res, next);
+
+      await dukaanService.deleteDukaan(req.params.id);
+      res.status(200).json({ success: true, message: "Deleted" });
     } catch (err) {
       next(err);
     }

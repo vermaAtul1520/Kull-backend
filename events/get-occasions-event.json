@@ -1,0 +1,20 @@
+{
+    "resource": "/api/occasions",
+    "path": "/api/occasions",
+    "httpMethod": "GET",
+    "headers": {
+        "Accept": "*/*",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer fake-token"
+    },
+    "queryStringParameters": {
+        "community": "TE!F4*RNPV7Z"
+    },
+    "requestContext": {
+        "identity": {
+            "sourceIp": "127.0.0.1"
+        }
+    },
+    "body": null,
+    "isBase64Encoded": false
+}

@@ -1,0 +1,54 @@
+{
+    "resource": "/api/communities/{communityId}/gotraDetail",
+    "path": "/api/communities/TE!F4*RNPV7Z/gotraDetail",
+    "httpMethod": "GET",
+    "headers": {
+        "Accept": "*/*",
+        "Content-Type": "application/json"
+    },
+    "multiValueHeaders": {
+        "Accept": [
+            "*/*"
+        ],
+        "Content-Type": [
+            "application/json"
+        ]
+    },
+    "queryStringParameters": null,
+    "multiValueQueryStringParameters": null,
+    "pathParameters": {
+        "communityId": "TE!F4*RNPV7Z"
+    },
+    "stageVariables": null,
+    "requestContext": {
+        "resourceId": "123456",
+        "resourcePath": "/api/communities/{communityId}/gotraDetail",
+        "httpMethod": "GET",
+        "extendedRequestId": "c6gk9Hx9pE0F6vA=",
+        "requestTime": "09/Apr/2015:12:34:56 +0000",
+        "path": "/api/communities/TE!F4*RNPV7Z/gotraDetail",
+        "accountId": "123456789012",
+        "protocol": "HTTP/1.1",
+        "stage": "prod",
+        "domainPrefix": "7abc",
+        "requestTimeEpoch": 1428582896000,
+        "requestId": "c6gk9Hx9pE0F6vA=",
+        "identity": {
+            "cognitoIdentityPoolId": null,
+            "accountId": null,
+            "cognitoIdentityId": null,
+            "caller": null,
+            "sourceIp": "127.0.0.1",
+            "accessKey": null,
+            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationProvider": null,
+            "userArn": null,
+            "userAgent": "Custom User Agent String",
+            "user": null
+        },
+        "domainName": "7abc.execute-api.us-east-1.amazonaws.com",
+        "apiId": "123456"
+    },
+    "body": null,
+    "isBase64Encoded": false
+}

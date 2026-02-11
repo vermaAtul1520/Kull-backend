@@ -1,37 +1,37 @@
-const News = require("../models/News");
+const { getNewsService } = require("../services/newsService");
+const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
+
+const newsService = getNewsService();
+const communityService = getCommunityService();
+const userService = getUserService();
 
 // Create News for a specific community
 exports.createNews = async (req, res, next) => {
   try {
     const { title, content, category, tags, imageUrl } = req.body;
     const { communityId } = req.params;
-    const { role, roleInCommunity, community } = req.user;
+    const { role, community } = req.user;
 
     // Authorization: Community admin can only create for their community
-    if (role !== 'superadmin' && community._id.toString() !== communityId) {
+    const userCommId = community ? (community._id || community.id) : null;
+    if (role !== 'superadmin' && String(userCommId) !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
         message: "You can only create news for your own community"
       });
     }
-   
-    const news = new News({
-      title,
-      content,
-      category,
-      tags,
-      community: communityId,
-      imageUrl,
-      author: req.user.id
-    });
 
-    await news.save();
-    return res.status(201).json({ 
-      success: true, 
+    const news = await newsService.createNews({
+      title, content, category, tags, imageUrl
+    }, communityId, req.user.id);
+
+    return res.status(201).json({
+      success: true,
       statusCode: 201,
       message: "News created successfully",
-      data: news 
+      data: news
     });
   } catch (err) {
     return res.status(500).json({
@@ -49,18 +49,19 @@ exports.updateNews = async (req, res, next) => {
     const { id } = req.params;
     const { role, roleInCommunity, community } = req.user;
 
-    const news = await News.findById(id);
+    const news = await newsService.getNewsById(id);
     if (!news) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         statusCode: 404,
-        message: "News not found" 
+        message: "News not found"
       });
     }
 
     // Authorization: Community admin can only update their community's news
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community._id.toString();
+    const userCommId = community ? (community._id || community.id) : null;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -70,14 +71,13 @@ exports.updateNews = async (req, res, next) => {
       });
     }
 
-    Object.assign(news, req.body);
-    await news.save();
+    const updated = await newsService.updateNews(id, req.body);
 
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       statusCode: 200,
       message: "News updated successfully",
-      data: news 
+      data: updated
     });
   } catch (err) {
     return res.status(500).json({
@@ -95,18 +95,19 @@ exports.deleteNews = async (req, res, next) => {
     const { id } = req.params;
     const { role, roleInCommunity, community } = req.user;
 
-    const news = await News.findById(id);
+    const news = await newsService.getNewsById(id);
     if (!news) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         statusCode: 404,
-        message: "News not found" 
+        message: "News not found"
       });
     }
 
     // Authorization: Community admin can only delete their community's news
     const isSuperAdmin = role === 'superadmin';
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && news.community.toString() === community._id.toString();
+    const userCommId = community ? (community._id || community.id) : null;
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -116,11 +117,11 @@ exports.deleteNews = async (req, res, next) => {
       });
     }
 
-    await news.deleteOne();
-    return res.status(200).json({ 
-      success: true, 
+    await newsService.deleteNews(id);
+    return res.status(200).json({
+      success: true,
       statusCode: 200,
-      message: "News deleted successfully" 
+      message: "News deleted successfully"
     });
   } catch (err) {
     return res.status(500).json({
@@ -136,10 +137,11 @@ exports.deleteNews = async (req, res, next) => {
 exports.getCommunityNews = async (req, res, next) => {
   try {
     const { communityId } = req.params;
-    const { role, roleInCommunity, community } = req.user;
+    const { role, community } = req.user;
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && community._id.toString() !== communityId) {
+    const userCommId = community ? (community._id || community.id) : null;
+    if (role !== 'superadmin' && String(userCommId) !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -147,15 +149,32 @@ exports.getCommunityNews = async (req, res, next) => {
       });
     }
 
-    const newsList = await News.find({ community: communityId })
-      .populate("author", "firstName lastName email")
-      .populate("community", "name")
-      .sort({ createdAt: -1 });
+    const newsList = await newsService.getNewsByCommunity(communityId);
 
-    return res.status(200).json({ 
-      success: true, 
+    // Manual Populate
+    const authorIds = newsList.map(n => n.author);
+    const users = await userService.getManyByIds(authorIds);
+    const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+    // Check if community fetch needed
+    // Usually redundant if filtered by communityId, but to match response structure
+    const comm = await communityService.getCommunityById(communityId);
+
+    const populated = newsList.map(n => ({
+      ...n,
+      author: userMap[n.author] ? {
+        _id: userMap[n.author].id || userMap[n.author]._id,
+        firstName: userMap[n.author].firstName,
+        lastName: userMap[n.author].lastName,
+        email: userMap[n.author].email
+      } : n.author,
+      community: comm ? { name: comm.name } : n.community
+    }));
+
+    return res.status(200).json({
+      success: true,
       statusCode: 200,
-      data: newsList 
+      data: populated
     });
   } catch (err) {
     return res.status(500).json({
@@ -171,22 +190,21 @@ exports.getCommunityNews = async (req, res, next) => {
 exports.getSingleNews = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { role, roleInCommunity, community } = req.user;
+    const { role, community } = req.user;
 
-    const news = await News.findById(id)
-      .populate("author", "firstName lastName email")
-      .populate("community", "name");
+    const news = await newsService.getNewsById(id);
 
     if (!news) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         statusCode: 404,
-        message: "News not found" 
+        message: "News not found"
       });
     }
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && news.community._id.toString() !== community._id.toString()) {
+    const userCommId = community ? (community._id || community.id) : null;
+    if (role !== 'superadmin' && String(news.community) !== String(userCommId)) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -194,10 +212,20 @@ exports.getSingleNews = async (req, res, next) => {
       });
     }
 
-    return res.status(200).json({ 
-      success: true, 
+    // Populate
+    const user = await userService.getUserById(news.author);
+    const comm = await communityService.getCommunityById(news.community);
+
+    const populated = {
+      ...news,
+      author: user ? { firstName: user.firstName, lastName: user.lastName, email: user.email } : news.author,
+      community: comm ? { name: comm.name } : news.community
+    };
+
+    return res.status(200).json({
+      success: true,
       statusCode: 200,
-      data: news 
+      data: populated
     });
   } catch (err) {
     return res.status(500).json({
@@ -209,15 +237,16 @@ exports.getSingleNews = async (req, res, next) => {
   }
 };
 
-// Get news headlines for homepage slider (Issue #18 fix)
+// Get news headlines for homepage slider
 exports.getNewsHeadlines = async (req, res, next) => {
   try {
     const { communityId } = req.params;
-    const { role, roleInCommunity, community } = req.user;
+    const { role, community } = req.user;
     const limit = parseInt(req.query.limit) || 5;
 
     // Authorization: Non-superadmin users can only view their community's news
-    if (role !== 'superadmin' && community._id.toString() !== communityId) {
+    const userCommId = community ? (community._id || community.id) : null;
+    if (role !== 'superadmin' && String(userCommId) !== communityId) {
       return res.status(403).json({
         success: false,
         statusCode: 403,
@@ -225,21 +254,21 @@ exports.getNewsHeadlines = async (req, res, next) => {
       });
     }
 
-    const headlines = await News.find({ community: communityId })
-      .select('title imageUrl createdAt _id')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    // Repository should support limit/sort or we slice here
+    // DynamoDB findByCommunity returns sorted desc
+    const allNews = await newsService.getNewsByCommunity(communityId, { limit });
 
-    return res.status(200).json({ 
-      success: true, 
+    const headlines = allNews.map(news => ({
+      id: news.id || news._id,
+      title: news.title,
+      image: news.imageUrl,
+      createdAt: news.createdAt
+    }));
+
+    return res.status(200).json({
+      success: true,
       statusCode: 200,
-      headlines: headlines.map(news => ({
-        id: news._id,
-        title: news.title,
-        image: news.imageUrl,
-        createdAt: news.createdAt
-      }))
+      headlines
     });
   } catch (err) {
     return res.status(500).json({

@@ -1,0 +1,45 @@
+{
+    "resource": "/{proxy+}",
+    "path": "/api/occasion-categories",
+    "httpMethod": "GET",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NzlkZmZlNTg3NzY5YjA3ZmY4MmE5NSIsInJvbGUiOiJ1c2VyIiwiZW1haWwiOiJqaXRlbmRlci5hbXVsQGdtYWlsLmNvbSIsInBob25lIjoiOTMxMjkwNjgxNyIsImNvbW11bml0eSI6IjY5NTgwNzZkZTA2OWQ1MjYyODg3MjU2ZiIsInJvbGVJbkNvbW11bml0eSI6ImFkbWluIiwiaWF0IjoxNzcwNDkwNDQwLCJleHAiOjE3NzEwOTUyNDB9.0JdMQOAhEhZGLvmej5ua155qO_xgcWTgwcbgDTZe31o"
+    },
+    "queryStringParameters": null,
+    "pathParameters": {
+        "proxy": "api/occasion-categories"
+    },
+    "stageVariables": null,
+    "requestContext": {
+        "resourceId": "123456",
+        "resourcePath": "/{proxy+}",
+        "httpMethod": "GET",
+        "extendedRequestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+        "requestTime": "09/Apr/2015:12:34:56 +0000",
+        "path": "/api/occasion-categories",
+        "accountId": "123456789012",
+        "protocol": "HTTP/1.1",
+        "stage": "prod",
+        "domainPrefix": "api",
+        "requestTimeEpoch": 1428582896000,
+        "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+        "identity": {
+            "cognitoIdentityPoolId": null,
+            "accountId": null,
+            "cognitoIdentityId": null,
+            "caller": null,
+            "accessKey": null,
+            "sourceIp": "127.0.0.1",
+            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationProvider": null,
+            "userArn": null,
+            "userAgent": "Custom User Agent String",
+            "user": null
+        },
+        "domainName": "api.domain.com",
+        "apiId": "1234567890"
+    },
+    "body": null,
+    "isBase64Encoded": false
+}

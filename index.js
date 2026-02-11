@@ -27,11 +27,36 @@ const meetingRoutes = require("./routes/meetingRoutes");
 const sportsEventRoutes = require("./routes/sportsEventRoutes"); // New sports event routes
 const occasionRoutes = require("./routes/occasionRoutes");
 const occasionCategoryRoutes = require("./routes/occasionCategoryRoutes");
-const familyRoutes = require("./routes/familyRoutes"); 
+const familyRoutes = require("./routes/familyRoutes");
 
-// MongoDB connection
+// MongoDB connection (legacy - used when DB_TYPE=mongodb)
 const connectDB = require("./config/database");
-connectDB(); // Connect to MongoDB Atlas
+
+// Database abstraction layer (supports both MongoDB and DynamoDB)
+const { initializeDatabase, getDatabaseType } = require("./db");
+
+// Initialize database based on DB_TYPE environment variable
+const initDb = async () => {
+  const dbType = getDatabaseType();
+
+  if (dbType === 'mongodb') {
+    // Use legacy MongoDB connection for backwards compatibility
+    await connectDB();
+  } else {
+    // Use new database abstraction layer
+    await initializeDatabase();
+  }
+
+  console.log(`Database type: ${dbType}`);
+};
+
+// Initialize database (non-blocking for Lambda cold start optimization)
+initDb().catch(err => {
+  console.error('Database initialization error:', err);
+  if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    process.exit(1);
+  }
+});
 
 const app = express();
 
@@ -53,8 +78,8 @@ app.use(cors({
   credentials: true,   // Allows cookies and Authorization headers
 }));
 app.use(morgan("dev")); // Cleaner for dev, use "combined" in prod
-app.use(compression());
-app.use(limiter);
+// app.use(compression());
+// app.use(limiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -133,14 +158,19 @@ app.use("*", (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-// Server Start
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  const baseURL =
-    process.env.NODE_ENV === "production"
-      ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || "your-domain.com"}`
-      : `http://localhost:${PORT}`;
+// Server Start - Only listen when not in Lambda environment
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    const baseURL =
+      process.env.NODE_ENV === "production"
+        ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME || "your-domain.com"}`
+        : `http://localhost:${PORT}`;
 
-  console.log(`KULL Backend running at ${baseURL}/api`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-});
+    console.log(`KULL Backend running at ${baseURL}/api`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  });
+}
+
+// Export app for Lambda handler
+module.exports = app;

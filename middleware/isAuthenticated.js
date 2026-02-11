@@ -9,9 +9,9 @@ const isAuthenticated = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
-      message: "No token provided" 
+      message: "No token provided"
     });
   }
 
@@ -21,22 +21,28 @@ const isAuthenticated = async (req, res, next) => {
 
     // Use JWT payload directly instead of DB query for better performance
     // Only query DB for critical operations that need fresh data
+    const communityId = decoded.community;
     req.user = {
       id: decoded.id,
       role: decoded.role,
       roleInCommunity: decoded.roleInCommunity,
-      community: decoded.community,
+      community: communityId ? {
+        _id: communityId,
+        id: communityId,
+        toString: () => communityId
+      } : null,
     };
-    
+    console.log('Authenticated User:', JSON.stringify(req.user));
+
     // Add convenience booleans
     req.user.isSuperAdmin = decoded.role === "superadmin";
     req.user.isCommunityAdmin =
       decoded.roleInCommunity === "admin" &&
-      decoded.community;
+      communityId;
 
     next();
   } catch (err) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
       error: err.message

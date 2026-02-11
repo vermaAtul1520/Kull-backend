@@ -1,0 +1,5 @@
+# SAM Build artifacts
+.aws-sam/
+
+# SAM local testing
+samconfig.toml.bak

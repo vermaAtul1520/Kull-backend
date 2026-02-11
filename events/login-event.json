@@ -1,0 +1,28 @@
+{
+    "body": "{\"emailOrPhone\": \"jitender.amul@gmail.com\", \"password\": \"Muskan@01\"}",
+    "resource": "/api/auth/login",
+    "path": "/api/auth/login",
+    "httpMethod": "POST",
+    "isBase64Encoded": false,
+    "queryStringParameters": {},
+    "multiValueQueryStringParameters": {},
+    "pathParameters": {},
+    "stageVariables": {},
+    "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    },
+    "requestContext": {
+        "apiId": "test",
+        "resourceId": "test",
+        "requestId": "test-request-id",
+        "identity": {
+            "sourceIp": "127.0.0.1",
+            "userAgent": "PostmanRuntime/7.26.8"
+        },
+        "path": "/api/auth/login",
+        "protocol": "HTTP/1.1",
+        "stage": "prod",
+        "httpMethod": "POST"
+    }
+}

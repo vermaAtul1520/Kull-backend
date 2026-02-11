@@ -1,0 +1,73 @@
+{
+    "resource": "/api",
+    "path": "/api",
+    "httpMethod": "GET",
+    "headers": {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Host": "your-api-id.execute-api.ap-south-1.amazonaws.com",
+        "User-Agent": "AWS Lambda Test",
+        "X-Forwarded-For": "127.0.0.1",
+        "X-Forwarded-Port": "443",
+        "X-Forwarded-Proto": "https"
+    },
+    "multiValueHeaders": {
+        "Accept": [
+            "application/json"
+        ],
+        "Accept-Encoding": [
+            "gzip, deflate, br"
+        ],
+        "Host": [
+            "your-api-id.execute-api.ap-south-1.amazonaws.com"
+        ],
+        "User-Agent": [
+            "AWS Lambda Test"
+        ],
+        "X-Forwarded-For": [
+            "127.0.0.1"
+        ],
+        "X-Forwarded-Port": [
+            "443"
+        ],
+        "X-Forwarded-Proto": [
+            "https"
+        ]
+    },
+    "queryStringParameters": null,
+    "multiValueQueryStringParameters": null,
+    "pathParameters": null,
+    "stageVariables": null,
+    "requestContext": {
+        "resourceId": "abc123",
+        "resourcePath": "/api",
+        "httpMethod": "GET",
+        "extendedRequestId": "test-extended-request-id",
+        "requestTime": "07/Feb/2026:14:32:28 +0000",
+        "path": "/prod/api",
+        "accountId": "296222413629",
+        "protocol": "HTTP/1.1",
+        "stage": "prod",
+        "domainPrefix": "your-api-id",
+        "requestTimeEpoch": 1770497548000,
+        "requestId": "test-request-id",
+        "identity": {
+            "cognitoIdentityPoolId": null,
+            "accountId": null,
+            "cognitoIdentityId": null,
+            "caller": null,
+            "sourceIp": "127.0.0.1",
+            "principalOrgId": null,
+            "accessKey": null,
+            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationProvider": null,
+            "userArn": null,
+            "userAgent": "AWS Lambda Test",
+            "user": null
+        },
+        "domainName": "your-api-id.execute-api.ap-south-1.amazonaws.com",
+        "apiId": "your-api-id"
+    },
+    "body": null,
+    "isBase64Encoded": false
+}

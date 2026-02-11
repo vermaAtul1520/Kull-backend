@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: KULL Backend - Multi-Community Platform Serverless API
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 512
+    Environment:
+      Variables:
+        NODE_ENV: production
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment stage
+
+Resources:
+  # API Gateway
+  KullApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      BinaryMediaTypes:
+        - 'multipart/form-data'
+        - 'image/png'
+        - 'image/jpeg'
+        - 'application/pdf'
+      Cors:
+        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        AllowCredentials: false
+
+  # Lambda Function
+  KullFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub kull-backend-${Stage}
+      Handler: lambda.handler
+      CodeUri: .
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          NODE_ENV: development
+          STAGE: !Ref Stage
+          # Database Type: 'dynamodb' for serverless, 'mongodb' for EC2
+          DB_TYPE: dynamodb
+          DYNAMODB_TABLE_PREFIX: !Sub kull-${Stage}-
+          AWS_DYNAMODB_REGION: !Ref AWS::Region
+          S3_BUCKET_NAME: !Ref KullUploadsBucket
+          AWS_S3_REGION: !Ref AWS::Region
+          
+          # Application Config
+          PORT: 5000
+          FRONTEND_URL: http://localhost:3000
+          
+          # Auth & Security
+          JWT_SECRET: yourSuperSecretJWTKey
+          JWT_EXPIRES_IN: 1d
+          
+          # Email Configuration
+          USE_AWS_SES: True
+          SES_FROM_EMAIL: !Ref SUPPORT_EMAIL
+          USE_SENDGRID: False
+          SENDGRID_API_KEY: ""
+          EMAIL_USER: ""
+          EMAIL_PASS: ""
+          EMAIL_FROM_ADDRESS: ""
+          EMAIL_FROM_NAME: "KULL Platform"
+          SUPER_ADMIN_EMAIL: atulverma1520@gmail.com
+          SUPPORT_EMAIL: rjrootstorage@gmail.com
+          
+          # External APIs
+          YOUTUBE_API_KEY: AIzaSyBmfodwQJ5a9CNjYzktXlfHtVF3U0n6Hxk
+          
+          # MongoDB URI (Unused in pure DynamoDB mode but added as requested)
+          MONGO_URI: "mongodb+srv://parmanandprajapati006:vNr37YTR7pufyxPD@cluster0.3tsblyf.mongodb.net/Kull?retryWrites=true&w=majority&appName=Cluster0"
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref KullUploadsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-users
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-communities
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-community-config
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-posts
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-donations
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-news
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-occasions
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-occasion-categories
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-appeals
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-dukaans
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-education
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-jobs
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-kartavya
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-meetings
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-sports
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-bhajans
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-family
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-comments
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-likes
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-occasion-contents
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/kull/${Stage}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:kull/${Stage}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:GetItem
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/kull-${Stage}-*/index/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
+      Events:
+        ProxyApiRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref KullApi
+            Path: /
+            Method: ANY
+        ProxyApiGreedy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref KullApi
+            Path: /{proxy+}
+            Method: ANY
+
+  # S3 Bucket for file uploads (replaces /uploads folder)
+  KullUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub kull-uploads-${Stage}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+
+  # S3 Bucket Policy for public read access to uploads
+  KullUploadsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref KullUploadsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - s3:GetObject
+            Resource: !Sub arn:aws:s3:::${KullUploadsBucket}/*
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${KullApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiEndpoint
+
+  S3BucketName:
+    Description: S3 bucket for file uploads
+    Value: !Ref KullUploadsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-S3Bucket
+
+  S3BucketUrl:
+    Description: S3 bucket URL for accessing uploaded files
+    Value: !Sub https://${KullUploadsBucket}.s3.${AWS::Region}.amazonaws.com
+    Export:
+      Name: !Sub ${AWS::StackName}-S3BucketUrl
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt KullFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-LambdaArn

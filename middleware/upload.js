@@ -3,6 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Check if running in AWS Lambda - use S3 storage instead
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+if (isLambda) {
+  module.exports = require('./uploadS3');
+  return;
+}
+
 // Ensure upload directories exist
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {

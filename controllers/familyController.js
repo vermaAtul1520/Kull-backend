@@ -1,367 +1,172 @@
-const FamilyRelationship = require('../models/FamilyRelationship');
-const User = require('../models/User');
+// controllers/familyController.js
+// Refactored to use FamilyService and UserService
 
-// Helper function to get reverse relationship type
-const getReverseRelationType = (relationType, userGender) => {
-  const reverseMap = {
-    'father': userGender === 'female' ? 'daughter' : 'son',
-    'mother': userGender === 'female' ? 'daughter' : 'son',
-    'son': userGender === 'female' ? 'mother' : 'father',
-    'daughter': userGender === 'female' ? 'mother' : 'father',
-    'husband': 'wife',
-    'wife': 'husband',
-    'spouse': 'spouse',
-    'brother': userGender === 'female' ? 'sister' : 'brother',
-    'sister': userGender === 'female' ? 'sister' : 'brother',
-    'grandfather': userGender === 'female' ? 'granddaughter' : 'grandson',
-    'grandmother': userGender === 'female' ? 'granddaughter' : 'grandson',
-    'grandson': userGender === 'female' ? 'grandmother' : 'grandfather',
-    'granddaughter': userGender === 'female' ? 'grandmother' : 'grandfather',
-    'uncle': userGender === 'female' ? 'niece' : 'nephew',
-    'aunt': userGender === 'female' ? 'niece' : 'nephew',
-    'nephew': userGender === 'female' ? 'aunt' : 'uncle',
-    'niece': userGender === 'female' ? 'aunt' : 'uncle',
-    'cousin': 'cousin',
-    'father-in-law': userGender === 'female' ? 'daughter-in-law' : 'son-in-law',
-    'mother-in-law': userGender === 'female' ? 'daughter-in-law' : 'son-in-law',
-    'son-in-law': userGender === 'female' ? 'mother-in-law' : 'father-in-law',
-    'daughter-in-law': userGender === 'female' ? 'mother-in-law' : 'father-in-law',
-    'brother-in-law': userGender === 'female' ? 'sister-in-law' : 'brother-in-law',
-    'sister-in-law': userGender === 'female' ? 'sister-in-law' : 'brother-in-law'
-  };
+const { getFamilyService } = require("../services/familyService");
+const { getUserService } = require("../services/userService");
 
-  return reverseMap[relationType] || relationType;
-};
+const familyService = getFamilyService();
+const userService = getUserService();
 
-// Add family relationship
 exports.addFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user.id;
     const { relatedUserId, relationType } = req.body;
+    const userId = req.user.id;
+    const userGender = req.user.gender;
 
-    // Validate input
     if (!relatedUserId || !relationType) {
-      return res.status(400).json({
-        success: false,
-        message: 'Related user ID and relationship type are required'
-      });
+      return res.status(400).json({ success: false, message: "Related user and relation type are required" });
     }
 
-    // Check if trying to add self
-    if (userId.toString() === relatedUserId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot add yourself as a family member'
-      });
+    if (userId === relatedUserId) {
+      return res.status(400).json({ success: false, message: "Cannot add relationship with yourself" });
     }
 
-    // Check if related user exists
-    const relatedUser = await User.findById(relatedUserId);
+    // Check availability of users
+    const relatedUser = await userService.getUserById(relatedUserId);
     if (!relatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'Related user not found'
-      });
+      return res.status(404).json({ success: false, message: "Related user not found" });
     }
-
-    // Get current user details for reverse relationship
-    const currentUser = await User.findById(userId);
 
     // Check if relationship already exists
-    const existingRelationship = await FamilyRelationship.findOne({
-      user: userId,
-      relatedUser: relatedUserId
-    });
-
-    if (existingRelationship) {
-      return res.status(400).json({
-        success: false,
-        message: 'Relationship already exists. You can update it instead.'
-      });
+    const existing = await familyService.getRelationship(userId, relatedUserId);
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Relationship already exists" });
     }
 
-    // Create forward relationship
-    const forwardRelationship = await FamilyRelationship.create({
-      user: userId,
-      relatedUser: relatedUserId,
-      relationType: relationType,
-      createdBy: userId
-    });
+    // Create Reciprocal Relationship via Service
+    const forward = await familyService.addRelationship(userId, relatedUserId, relationType, userGender, userId);
 
-    // Create reverse relationship
-    const reverseRelationType = getReverseRelationType(relationType, currentUser.gender);
+    // Populate for response
+    const populated = {
+      ...forward,
+      relatedUser: {
+        _id: relatedUser.id || relatedUser._id,
+        firstName: relatedUser.firstName,
+        lastName: relatedUser.lastName,
+        profileImage: relatedUser.profileImage,
+        gender: relatedUser.gender
+      }
+    };
 
-    await FamilyRelationship.create({
-      user: relatedUserId,
-      relatedUser: userId,
-      relationType: reverseRelationType,
-      createdBy: userId
-    });
-
-    // Populate and return the created relationship
-    const populatedRelationship = await FamilyRelationship.findById(forwardRelationship._id)
-      .populate('relatedUser', 'firstName lastName email phone profileImage code gender');
-
-    res.status(201).json({
-      success: true,
-      message: 'Family relationship added successfully',
-      data: populatedRelationship
-    });
-
-  } catch (error) {
-    console.error('Error adding family relationship:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add family relationship',
-      error: error.message
-    });
+    res.status(201).json({ success: true, message: "Family relationship added successfully", data: populated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };
 
-// Get user's family tree
 exports.getFamilyTree = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.user.id;
+    // const depth = req.query.depth || 3; // depth logic not fully implemented in service yet
 
-    // Get all relationships for the user
-    const relationships = await FamilyRelationship.find({ user: userId })
-      .populate('relatedUser', 'firstName lastName email phone profileImage code gender')
-      .sort({ createdAt: -1 });
+    const relationships = await familyService.getRelationshipsForUser(userId);
 
-    // Group relationships by type
-    const familyTree = {
-      parents: [],
-      children: [],
-      siblings: [],
-      spouse: [],
-      grandparents: [],
-      grandchildren: [],
-      extended: []
-    };
+    // Populate related users
+    const relatedUserIds = relationships.map(r => r.relatedUser || r.relatedUserId).filter(id => id);
+    const relatedUsers = await userService.getManyByIds(relatedUserIds);
+    const userMap = relatedUsers.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+    // Group by relation type
+    const tree = {};
 
     relationships.forEach(rel => {
-      const member = {
-        _id: rel.relatedUser._id,
-        firstName: rel.relatedUser.firstName,
-        lastName: rel.relatedUser.lastName,
-        email: rel.relatedUser.email,
-        phone: rel.relatedUser.phone,
-        profileImage: rel.relatedUser.profileImage,
-        code: rel.relatedUser.code,
-        gender: rel.relatedUser.gender,
-        relationType: rel.relationType,
-        relationshipId: rel._id,
-        addedOn: rel.createdAt
-      };
-
-      switch (rel.relationType) {
-        case 'father':
-        case 'mother':
-          familyTree.parents.push(member);
-          break;
-        case 'son':
-        case 'daughter':
-          familyTree.children.push(member);
-          break;
-        case 'brother':
-        case 'sister':
-          familyTree.siblings.push(member);
-          break;
-        case 'husband':
-        case 'wife':
-        case 'spouse':
-          familyTree.spouse.push(member);
-          break;
-        case 'grandfather':
-        case 'grandmother':
-          familyTree.grandparents.push(member);
-          break;
-        case 'grandson':
-        case 'granddaughter':
-          familyTree.grandchildren.push(member);
-          break;
-        default:
-          familyTree.extended.push(member);
+      const rUser = userMap[rel.relatedUser || rel.relatedUserId];
+      if (rUser) {
+        const type = rel.relationType;
+        if (!tree[type]) tree[type] = [];
+        tree[type].push({
+          _id: rel.id || rel._id,
+          user: rel.user,
+          // relatedUser populated
+          relatedUser: {
+            _id: rUser.id || rUser._id,
+            firstName: rUser.firstName,
+            lastName: rUser.lastName,
+            profileImage: rUser.profileImage,
+            gender: rUser.gender,
+            city: rUser.city
+          },
+          relationType: type,
+          createdAt: rel.createdAt
+        });
       }
     });
 
-    res.status(200).json({
-      success: true,
-      data: familyTree,
-      totalMembers: relationships.length
-    });
-
-  } catch (error) {
-    console.error('Error fetching family tree:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch family tree',
-      error: error.message
-    });
+    res.json({ success: true, data: tree });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };
 
-// Update family relationship
 exports.updateFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user.id;
     const { relationshipId } = req.params;
     const { relationType } = req.body;
+    const userGender = req.user.gender;
 
     if (!relationType) {
-      return res.status(400).json({
-        success: false,
-        message: 'Relationship type is required'
-      });
+      return res.status(400).json({ success: false, message: "Relation type is required" });
     }
 
-    // Find the relationship
-    const relationship = await FamilyRelationship.findOne({
-      _id: relationshipId,
-      user: userId
-    });
+    // Service handles updating both sides if we use updateRelationshipById
+    const updated = await familyService.updateRelationshipById(relationshipId, relationType, userGender);
 
-    if (!relationship) {
-      return res.status(404).json({
-        success: false,
-        message: 'Relationship not found'
-      });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Relationship not found" });
     }
 
-    // Get current user details
-    const currentUser = await User.findById(userId);
-
-    // Update forward relationship
-    relationship.relationType = relationType;
-    await relationship.save();
-
-    // Find and update reverse relationship
-    const reverseRelationship = await FamilyRelationship.findOne({
-      user: relationship.relatedUser,
-      relatedUser: userId
-    });
-
-    if (reverseRelationship) {
-      const reverseRelationType = getReverseRelationType(relationType, currentUser.gender);
-      reverseRelationship.relationType = reverseRelationType;
-      await reverseRelationship.save();
-    }
-
-    // Populate and return updated relationship
-    const updatedRelationship = await FamilyRelationship.findById(relationshipId)
-      .populate('relatedUser', 'firstName lastName email phone profileImage code gender');
-
-    res.status(200).json({
-      success: true,
-      message: 'Relationship updated successfully',
-      data: updatedRelationship
-    });
-
-  } catch (error) {
-    console.error('Error updating relationship:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update relationship',
-      error: error.message
-    });
+    res.json({ success: true, message: "Relationship updated successfully", data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };
 
-// Remove family relationship
 exports.removeFamilyRelationship = async (req, res) => {
   try {
-    const userId = req.user.id;
     const { relationshipId } = req.params;
 
-    // Find the relationship
-    const relationship = await FamilyRelationship.findOne({
-      _id: relationshipId,
-      user: userId
-    });
+    const success = await familyService.deleteRelationshipById(relationshipId);
 
-    if (!relationship) {
-      return res.status(404).json({
-        success: false,
-        message: 'Relationship not found'
-      });
+    if (!success) {
+      return res.status(404).json({ success: false, message: "Relationship not found" });
     }
 
-    const relatedUserId = relationship.relatedUser;
-
-    // Delete forward relationship
-    await FamilyRelationship.findByIdAndDelete(relationshipId);
-
-    // Delete reverse relationship
-    await FamilyRelationship.findOneAndDelete({
-      user: relatedUserId,
-      relatedUser: userId
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Relationship removed successfully'
-    });
-
-  } catch (error) {
-    console.error('Error removing relationship:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to remove relationship',
-      error: error.message
-    });
+    res.json({ success: true, message: "Relationship removed successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };
 
-// Search users for adding to family tree
 exports.searchUsers = async (req, res) => {
   try {
-    const { query } = req.query;
+    const { search } = req.query;
+    const communityId = req.user.community;
 
-    if (!query || query.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: 'Search query must be at least 2 characters'
-      });
+    if (!search) {
+      return res.status(400).json({ success: false, message: "Search term is required" });
     }
 
-    // Get current user's community
-    const currentUser = await User.findById(req.user.id).select('community');
+    const users = await userService.searchUsers(search); // Generalized search
 
-    if (!currentUser?.community) {
-      return res.status(400).json({
-        success: false,
-        message: 'You must be part of a community to add family members'
-      });
-    }
+    // Filter by community in memory (if search returns cross-community)
+    // and exclude self.
+    const filtered = users.filter(u =>
+      (u.community === communityId || (u.community && (u.community._id || u.community.id).toString() === communityId.toString())) &&
+      (u.id || u._id).toString() !== req.user.id
+    );
 
-    // Search by name, email, phone, or code within same community
-    const users = await User.find({
-      $or: [
-        { firstName: { $regex: query, $options: 'i' } },
-        { lastName: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { phone: { $regex: query, $options: 'i' } },
-        { code: { $regex: query, $options: 'i' } }
-      ],
-      _id: { $ne: req.user.id }, // Exclude current user
-      community: currentUser?.community, // Same community only
-      communityStatus: 'approved' // Only approved members
-    })
-    .select('firstName lastName email phone profileImage code gender community')
-    .limit(20);
+    const mapped = filtered.map(u => ({
+      _id: u.id || u._id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      profileImage: u.profileImage,
+      gender: u.gender,
+      city: u.city,
+      phoneNumber: u.phoneNumber
+    }));
 
-    res.status(200).json({
-      success: true,
-      data: users,
-      count: users.length
-    });
-
-  } catch (error) {
-    console.error('Error searching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to search users',
-      error: error.message
-    });
+    res.json({ success: true, data: mapped });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };

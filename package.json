@@ -6,8 +6,23 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "dev:dynamodb": "DB_TYPE=dynamodb nodemon index.js",
+    "test": "jest --testPathIgnorePatterns=integration",
+    "test:watch": "jest --watch --testPathIgnorePatterns=integration",
+    "test:coverage": "jest --coverage --testPathIgnorePatterns=integration",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:all": "jest",
+    "db:create-tables": "node scripts/create-dynamodb-tables.js",
+    "db:local": "docker run -d -p 8000:8000 amazon/dynamodb-local",
+    "db:migrate": "node scripts/migrate-to-dynamodb.js",
+    "db:migrate:dry-run": "node scripts/migrate-to-dynamodb.js --dry-run",
+    "sam:build": "sam build",
+    "sam:local": "sam local start-api",
+    "sam:deploy": "sam deploy",
+    "sam:deploy:dev": "sam deploy --config-env dev",
+    "sam:deploy:staging": "sam deploy --config-env staging",
+    "sam:deploy:prod": "sam deploy --config-env prod",
+    "sam:logs": "sam logs -n KullFunction --stack-name kull-backend-prod --tail"
   },
   "keywords": [
     "kull",
@@ -20,6 +35,11 @@
   "author": "Innovgeist - Team",
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/client-ses": "^3.987.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0",
+    "@codegenie/serverless-express": "^4.17.1",
     "@sendgrid/mail": "^8.1.5",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -36,6 +56,7 @@
     "mongoose": "^7.5.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "multer-s3": "^3.0.1",
     "nodemailer": "^6.9.4",
     "sharp": "^0.32.5",
     "uuid": "^9.0.0"

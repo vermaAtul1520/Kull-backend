@@ -1,5 +1,6 @@
 const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 const fs = require('fs').promises;
 const path = require('path');
 const emailTemplates = require('../config/emailTemplates');
@@ -13,31 +14,41 @@ const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
 const EMAIL_USER = process.env.EMAIL_USER || FALLBACK_EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS || FALLBACK_EMAIL_PASS;
 
-const USE_SENDGRID = process.env.USE_SENDGRID
-const USE_NODEMAILER = EMAIL_USER && EMAIL_PASS;
+const USE_SENDGRID = process.env.USE_SENDGRID === 'true' || !!SENDGRID_KEY;
+const USE_SES = process.env.USE_AWS_SES === 'true';
+const USE_NODEMAILER = (EMAIL_USER && EMAIL_PASS) || (process.env.USE_NODEMAILER === 'true');
 
 // Initialize SendGrid (if enabled and configured)
-if (USE_SENDGRID) {
-    sgMail.setApiKey(SENDGRID_KEY);
-    console.log('✅ Email Service: SendGrid initialized');
+if (USE_SENDGRID && SENDGRID_KEY) {
+  sgMail.setApiKey(SENDGRID_KEY);
+  console.log('✅ Email Service: SendGrid initialized');
+}
+
+// Initialize AWS SES client
+let sesClient = null;
+if (USE_SES) {
+  sesClient = new SESClient({
+    region: process.env.AWS_REGION || 'us-east-1'
+  });
+  console.log('✅ Email Service: AWS SES initialized');
 }
 
 // Initialize Nodemailer transporter (Gmail SMTP)
 let nodemailerTransporter = null;
 if (USE_NODEMAILER) {
-    nodemailerTransporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: EMAIL_USER,
-            pass: EMAIL_PASS
-        }
-    });
-    console.log('✅ Email Service: Nodemailer (Gmail) initialized');
+  nodemailerTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS
+    }
+  });
+  console.log('✅ Email Service: Nodemailer (Gmail) initialized');
 }
 
 // Warning if no email service is configured
-if (!USE_SENDGRID && !USE_NODEMAILER) {
-    console.warn('⚠️  WARNING: No email service configured. Please set up SendGrid or Nodemailer credentials.');
+if (!USE_SENDGRID && !USE_SES && !USE_NODEMAILER) {
+  console.warn('⚠️  WARNING: No email service configured. Please set up SendGrid, AWS SES or Nodemailer credentials.');
 }
 
 // Base template cache
@@ -45,199 +56,227 @@ let baseTemplate = null;
 
 // Helper function to load base template
 const loadBaseTemplate = async () => {
-    if (baseTemplate) {
-        return baseTemplate;
-    }
+  if (baseTemplate) {
+    return baseTemplate;
+  }
 
-    try {
-        const templatePath = path.join(__dirname, '../templates/emails/base.html');
-        baseTemplate = await fs.readFile(templatePath, 'utf-8');
-        return baseTemplate;
-    } catch (error) {
-        console.error('Error loading base email template:', error);
-        throw new Error('Base email template not found');
-    }
+  try {
+    const templatePath = path.join(__dirname, '../templates/emails/base.html');
+    baseTemplate = await fs.readFile(templatePath, 'utf-8');
+    return baseTemplate;
+  } catch (error) {
+    console.error('Error loading base email template:', error);
+    throw new Error('Base email template not found');
+  }
 };
 
 // Helper function to replace placeholders in template
 const replacePlaceholders = (template, data) => {
-    let result = template;
-    for (const [key, value] of Object.entries(data)) {
-        const placeholder = new RegExp(`{{${key}}}`, 'g');
-        result = result.replace(placeholder, value || '');
-    }
-    return result;
+  let result = template;
+  for (const [key, value] of Object.entries(data)) {
+    const placeholder = new RegExp(`{{${key}}}`, 'g');
+    result = result.replace(placeholder, value || '');
+  }
+  return result;
 };
 
 // Build email from template configuration
 const buildEmailFromTemplate = async (templateName, data) => {
-    try {
-        const template = emailTemplates[templateName];
-        if (!template) {
-            throw new Error(`Email template '${templateName}' not found`);
-        }
-
-        // Load base template
-        const baseHtml = await loadBaseTemplate();
-
-        // Prepare template data with defaults
-        const templateData = {
-            // Base template variables
-            emailTitle: replacePlaceholders(template.subject, data),
-            headerGradient: template.headerGradient,
-            primaryButtonColor: template.primaryButtonColor,
-            accentColor: template.accentColor,
-            headerIcon: template.headerIcon,
-            headerTitle: replacePlaceholders(template.headerTitle, data),
-            headerSubtitle: replacePlaceholders(template.headerSubtitle, data),
-            emailContent: replacePlaceholders(template.content, data),
-            footerText: replacePlaceholders(template.footerText, data),
-
-            // Default data
-            platformName: 'KULL',
-            year: new Date().getFullYear(),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@kull.com',
-
-            // User provided data
-            ...data
-        };
-
-        // Replace all placeholders in the base template
-        const finalHtml = replacePlaceholders(baseHtml, templateData);
-        const subject = replacePlaceholders(template.subject, templateData);
-
-        return { html: finalHtml, subject };
-    } catch (error) {
-        console.error(`Error building email template '${templateName}':`, error);
-        throw error;
+  try {
+    const template = emailTemplates[templateName];
+    if (!template) {
+      throw new Error(`Email template '${templateName}' not found`);
     }
+
+    // Load base template
+    const baseHtml = await loadBaseTemplate();
+
+    // Prepare template data with defaults
+    const templateData = {
+      // Base template variables
+      emailTitle: replacePlaceholders(template.subject, data),
+      headerGradient: template.headerGradient,
+      primaryButtonColor: template.primaryButtonColor,
+      accentColor: template.accentColor,
+      headerIcon: template.headerIcon,
+      headerTitle: replacePlaceholders(template.headerTitle, data),
+      headerSubtitle: replacePlaceholders(template.headerSubtitle, data),
+      emailContent: replacePlaceholders(template.content, data),
+      footerText: replacePlaceholders(template.footerText, data),
+
+      // Default data
+      platformName: 'KULL',
+      year: new Date().getFullYear(),
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@kull.com',
+
+      // User provided data
+      ...data
+    };
+
+    // Replace all placeholders in the base template
+    const finalHtml = replacePlaceholders(baseHtml, templateData);
+    const subject = replacePlaceholders(template.subject, templateData);
+
+    return { html: finalHtml, subject };
+  } catch (error) {
+    console.error(`Error building email template '${templateName}':`, error);
+    throw error;
+  }
 };
 
 // Base email sending function with automatic fallback
 const sendEmail = async (to, subject, html, text = null) => {
-    // Try SendGrid first (if enabled)
-    if (USE_SENDGRID) {
-        try {
-            const msg = {
-                to,
-                from: {
-                    email: process.env.SENDGRID_FROM_EMAIL || 'innovgeist@gmail.com',
-                    name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
-                },
-                subject,
-                html,
-                text: text || html.replace(/<[^>]*>/g, '')
-            };
+  // 1. Try AWS SES (if enabled)
+  if (USE_SES && sesClient) {
+    try {
+      const params = {
+        Destination: {
+          ToAddresses: [to],
+        },
+        Message: {
+          Body: {
+            Html: { Data: html },
+            Text: { Data: text || html.replace(/<[^>]*>/g, '') },
+          },
+          Subject: { Data: subject },
+        },
+        Source: process.env.SES_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || 'innovgeist@gmail.com',
+      };
 
-            const response = await sgMail.send(msg);
-            console.log(`✅ Email sent via SendGrid to ${to}: ${subject}`);
-            return response;
-        } catch (error) {
-            console.error('❌ SendGrid failed:', error.message);
-
-            // If SendGrid fails and Nodemailer is available, try fallback
-            if (USE_NODEMAILER) {
-                console.log('🔄 Attempting fallback to Nodemailer...');
-            } else {
-                throw new Error(`SendGrid failed and no fallback available: ${error.message}`);
-            }
-        }
+      const command = new SendEmailCommand(params);
+      const response = await sesClient.send(command);
+      console.log(`✅ Email sent via AWS SES to ${to}: ${subject}`);
+      return response;
+    } catch (error) {
+      console.error('❌ AWS SES failed:', error.message);
+      if (!USE_SENDGRID && !USE_NODEMAILER) {
+        throw new Error(`AWS SES failed and no fallback available: ${error.message}`);
+      }
     }
+  }
 
-    // Use Nodemailer (Gmail SMTP) - either as primary or fallback
-    if (USE_NODEMAILER) {
-        try {
-            const mailOptions = {
-                from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
-                to: to,
-                subject: subject,
-                html: html,
-                text: text || html.replace(/<[^>]*>/g, '')
-            };
+  // 2. Try SendGrid (if enabled or if SES failed)
+  if (USE_SENDGRID && SENDGRID_KEY) {
+    try {
+      const msg = {
+        to,
+        from: {
+          email: process.env.SENDGRID_FROM_EMAIL || 'innovgeist@gmail.com',
+          name: process.env.SENDGRID_FROM_NAME || 'KULL Platform'
+        },
+        subject,
+        html,
+        text: text || html.replace(/<[^>]*>/g, '')
+      };
 
-            const response = await nodemailerTransporter.sendMail(mailOptions);
-            console.log(`✅ Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
-            return response;
-        } catch (error) {
-            console.error('❌ Nodemailer failed:', error);
-            throw new Error(`Failed to send email via Nodemailer: ${error.message}`);
-        }
+      const response = await sgMail.send(msg);
+      console.log(`✅ Email sent via SendGrid to ${to}: ${subject}`);
+      return response;
+    } catch (error) {
+      console.error('❌ SendGrid failed:', error.message);
+
+      // If SendGrid fails and Nodemailer is available, try fallback
+      if (!USE_NODEMAILER) {
+        throw new Error(`SendGrid failed and no fallback available: ${error.message}`);
+      }
+      console.log('🔄 Attempting fallback to Nodemailer...');
     }
+  }
 
-    // No email service available
-    throw new Error('No email service configured. Please set up SendGrid or Nodemailer.');
+  // 3. Use Nodemailer (Gmail SMTP) - either as primary or fallback
+  if (USE_NODEMAILER && nodemailerTransporter) {
+    try {
+      const mailOptions = {
+        from: `"${process.env.SENDGRID_FROM_NAME || 'KULL Platform'}" <${EMAIL_USER}>`,
+        to: to,
+        subject: subject,
+        html: html,
+        text: text || html.replace(/<[^>]*>/g, '')
+      };
+
+      const response = await nodemailerTransporter.sendMail(mailOptions);
+      console.log(`✅ Email sent via Nodemailer (Gmail) to ${to}: ${subject}`);
+      return response;
+    } catch (error) {
+      console.error('❌ Nodemailer failed:', error);
+      throw new Error(`Failed to send email via Nodemailer: ${error.message}`);
+    }
+  }
+
+  // No email service available
+  throw new Error('No email service configured or all configured services failed. Please check your credentials.');
 };
 
 // Generic template email sender
 const sendTemplateEmail = async (templateName, to, data) => {
-    try {
-        const { html, subject } = await buildEmailFromTemplate(templateName, data);
-        return await sendEmail(to, subject, html);
-    } catch (error) {
-        console.error(`Error sending ${templateName} email:`, error);
-        throw error;
-    }
+  try {
+    const { html, subject } = await buildEmailFromTemplate(templateName, data);
+    return await sendEmail(to, subject, html);
+  } catch (error) {
+    console.error(`Error sending ${templateName} email:`, error);
+    throw error;
+  }
 };
 
 // Specific email functions using templates
 const sendWelcomeEmail = async (email, firstName) => {
-    return await sendTemplateEmail('welcome', email, {
-        firstName
-    });
+  return await sendTemplateEmail('welcome', email, {
+    firstName
+  });
 };
 
 const sendJoinRequestEmail = async (email, firstName, communityName) => {
-    return await sendTemplateEmail('joinRequest', email, {
-        firstName,
-        communityName
-    });
+  return await sendTemplateEmail('joinRequest', email, {
+    firstName,
+    communityName
+  });
 };
 
 const sendPasswordResetEmail = async (email, firstName, resetToken) => {
-    return await sendTemplateEmail('passwordReset', email, {
-        firstName,
-        resetToken,
-        expiryTime: '30 minutes'
-    });
+  return await sendTemplateEmail('passwordReset', email, {
+    firstName,
+    resetToken,
+    expiryTime: '30 minutes'
+  });
 };
 
 const sendCommunityApprovalEmail = async (email, firstName, communityName, joinKey) => {
-    return await sendTemplateEmail('communityApproval', email, {
-        firstName,
-        communityName,
-        joinKey
-    });
+  return await sendTemplateEmail('communityApproval', email, {
+    firstName,
+    communityName,
+    joinKey
+  });
 };
 
 const sendJoinApprovalEmail = async (email, firstName, communityName) => {
-    return await sendTemplateEmail('joinApproval', email, {
-        firstName,
-        communityName
-    });
+  return await sendTemplateEmail('joinApproval', email, {
+    firstName,
+    communityName
+  });
 };
 
 const sendJoinRejectionEmail = async (email, firstName, communityName, rejectionReason) => {
-    return await sendTemplateEmail('joinRejection', email, {
-        firstName,
-        communityName,
-        rejectionReason: rejectionReason || 'No specific reason provided'
-    });
+  return await sendTemplateEmail('joinRejection', email, {
+    firstName,
+    communityName,
+    rejectionReason: rejectionReason || 'No specific reason provided'
+  });
 };
 
 // Additional template-based email functions
 const sendJoinRequestNotificationToAdmin = async (adminEmail, adminName, userName, communityName) => {
-    const { html, subject } = await buildEmailFromTemplate('welcome', {
-        firstName: adminName,
-        headerTitle: 'New Join Request',
-        headerSubtitle: `Someone wants to join ${communityName}`,
-        headerIcon: '👥',
-        headerGradient: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-        primaryButtonColor: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-        accentColor: '#ff9800'
-    });
+  const { html, subject } = await buildEmailFromTemplate('welcome', {
+    firstName: adminName,
+    headerTitle: 'New Join Request',
+    headerSubtitle: `Someone wants to join ${communityName}`,
+    headerIcon: '👥',
+    headerGradient: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+    primaryButtonColor: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+    accentColor: '#ff9800'
+  });
 
-    // Custom content for admin notification
-    const customContent = `
+  // Custom content for admin notification
+  const customContent = `
     <div class="greeting">Hi ${adminName}! 👋</div>
     
     <div class="message">
@@ -258,28 +297,28 @@ const sendJoinRequestNotificationToAdmin = async (adminEmail, adminName, userNam
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = `New Join Request - ${communityName}`;
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = `New Join Request - ${communityName}`;
 
-    return await sendEmail(adminEmail, finalSubject, finalHtml);
+  return await sendEmail(adminEmail, finalSubject, finalHtml);
 };
 
 const sendWelcomeToCommunityEmail = async (email, firstName, communityName) => {
-    return await sendTemplateEmail('joinApproval', email, {
-        firstName,
-        communityName
-    });
+  return await sendTemplateEmail('joinApproval', email, {
+    firstName,
+    communityName
+  });
 };
 
 const sendCommunityRequestConfirmation = async (email, firstName, communityName) => {
-    const { html, subject } = await buildEmailFromTemplate('joinRequest', {
-        firstName,
-        communityName: `"${communityName}" Registration`,
-        headerTitle: 'Request Submitted!',
-        headerSubtitle: 'Community registration request received'
-    });
+  const { html, subject } = await buildEmailFromTemplate('joinRequest', {
+    firstName,
+    communityName: `"${communityName}" Registration`,
+    headerTitle: 'Request Submitted!',
+    headerSubtitle: 'Community registration request received'
+  });
 
-    const customContent = `
+  const customContent = `
     <div class="status-badge status-info">📋 Under Review</div>
     
     <div class="greeting">Hi ${firstName}! 👋</div>
@@ -315,24 +354,24 @@ const sendCommunityRequestConfirmation = async (email, firstName, communityName)
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = `Community Registration Submitted - ${communityName}`;
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = `Community Registration Submitted - ${communityName}`;
 
-    return await sendEmail(email, finalSubject, finalHtml);
+  return await sendEmail(email, finalSubject, finalHtml);
 };
 
 const sendCommunityRequestNotificationToSuperAdmin = async (adminEmail, adminName, communityName, requesterName) => {
-    const { html, subject } = await buildEmailFromTemplate('welcome', {
-        firstName: adminName,
-        headerTitle: 'New Community Request',
-        headerSubtitle: 'Pending super admin review',
-        headerIcon: '🏢',
-        headerGradient: 'linear-gradient(135deg, #9c27b0 0%, #673ab7 100%)',
-        primaryButtonColor: 'linear-gradient(135deg, #9c27b0 0%, #673ab7 100%)',
-        accentColor: '#9c27b0'
-    });
+  const { html, subject } = await buildEmailFromTemplate('welcome', {
+    firstName: adminName,
+    headerTitle: 'New Community Request',
+    headerSubtitle: 'Pending super admin review',
+    headerIcon: '🏢',
+    headerGradient: 'linear-gradient(135deg, #9c27b0 0%, #673ab7 100%)',
+    primaryButtonColor: 'linear-gradient(135deg, #9c27b0 0%, #673ab7 100%)',
+    accentColor: '#9c27b0'
+  });
 
-    const customContent = `
+  const customContent = `
     <div class="status-badge status-info">🔍 Needs Review</div>
     
     <div class="greeting">Hi ${adminName}! 👋</div>
@@ -366,24 +405,24 @@ const sendCommunityRequestNotificationToSuperAdmin = async (adminEmail, adminNam
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = `New Community Registration Request - ${communityName}`;
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = `New Community Registration Request - ${communityName}`;
 
-    return await sendEmail(adminEmail, finalSubject, finalHtml);
+  return await sendEmail(adminEmail, finalSubject, finalHtml);
 };
 
 const sendPasswordResetConfirmation = async (email, firstName) => {
-    const { html, subject } = await buildEmailFromTemplate('welcome', {
-        firstName,
-        headerTitle: 'Password Reset Successful',
-        headerSubtitle: 'Your password has been updated',
-        headerIcon: '✅',
-        headerGradient: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-        primaryButtonColor: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-        accentColor: '#28a745'
-    });
+  const { html, subject } = await buildEmailFromTemplate('welcome', {
+    firstName,
+    headerTitle: 'Password Reset Successful',
+    headerSubtitle: 'Your password has been updated',
+    headerIcon: '✅',
+    headerGradient: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+    primaryButtonColor: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+    accentColor: '#28a745'
+  });
 
-    const customContent = `
+  const customContent = `
     <div class="status-badge status-success">✅ Password Updated</div>
     
     <div class="greeting">Hi ${firstName}! 👋</div>
@@ -408,23 +447,23 @@ const sendPasswordResetConfirmation = async (email, firstName) => {
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = 'Password Reset Successful - KULL';
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = 'Password Reset Successful - KULL';
 
-    return await sendEmail(email, finalSubject, finalHtml);
+  return await sendEmail(email, finalSubject, finalHtml);
 };
 
 const sendCommunityRejectionEmail = async (email, firstName, communityName, rejectionReason) => {
-    const { html, subject } = await buildEmailFromTemplate('joinRejection', {
-        firstName,
-        communityName: `"${communityName}" Registration`,
-        rejectionReason,
-        contactUrl: `${process.env.FRONTEND_URL}/contact`,
-        headerTitle: 'Community Request Update',
-        headerSubtitle: 'Update on your registration request'
-    });
+  const { html, subject } = await buildEmailFromTemplate('joinRejection', {
+    firstName,
+    communityName: `"${communityName}" Registration`,
+    rejectionReason,
+    contactUrl: `${process.env.FRONTEND_URL}/contact`,
+    headerTitle: 'Community Request Update',
+    headerSubtitle: 'Update on your registration request'
+  });
 
-    const customContent = `
+  const customContent = `
     <div class="status-badge status-danger">❌ Not Approved</div>
     
     <div class="greeting">Hi ${firstName},</div>
@@ -454,27 +493,27 @@ const sendCommunityRejectionEmail = async (email, firstName, communityName, reje
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = `Community Registration Update - ${communityName}`;
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = `Community Registration Update - ${communityName}`;
 
-    return await sendEmail(email, finalSubject, finalHtml);
+  return await sendEmail(email, finalSubject, finalHtml);
 };
 
 // Additional utility functions
 const sendNewContentNotification = async (emails, contentTitle, communityName, authorName) => {
-    try {
-        const emailPromises = emails.map(async (email) => {
-            const { html, subject } = await buildEmailFromTemplate('welcome', {
-                firstName: 'Member',
-                headerTitle: 'New Content Posted',
-                headerSubtitle: `in ${communityName}`,
-                headerIcon: '📢',
-                headerGradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-                primaryButtonColor: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-                accentColor: '#2196f3'
-            });
+  try {
+    const emailPromises = emails.map(async (email) => {
+      const { html, subject } = await buildEmailFromTemplate('welcome', {
+        firstName: 'Member',
+        headerTitle: 'New Content Posted',
+        headerSubtitle: `in ${communityName}`,
+        headerIcon: '📢',
+        headerGradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+        primaryButtonColor: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+        accentColor: '#2196f3'
+      });
 
-            const customContent = `
+      const customContent = `
         <div class="greeting">Hello! 👋</div>
         
         <div class="message">
@@ -491,31 +530,31 @@ const sendNewContentNotification = async (emails, contentTitle, communityName, a
         </div>
       `;
 
-            const finalHtml = html.replace('{{emailContent}}', customContent);
-            const finalSubject = `New Content in ${communityName} - ${contentTitle}`;
+      const finalHtml = html.replace('{{emailContent}}', customContent);
+      const finalSubject = `New Content in ${communityName} - ${contentTitle}`;
 
-            return sendEmail(email, finalSubject, finalHtml);
-        });
+      return sendEmail(email, finalSubject, finalHtml);
+    });
 
-        return await Promise.allSettled(emailPromises);
-    } catch (error) {
-        console.error('Error sending new content notifications:', error);
-        throw error;
-    }
+    return await Promise.allSettled(emailPromises);
+  } catch (error) {
+    console.error('Error sending new content notifications:', error);
+    throw error;
+  }
 };
 
 const sendEmailVerification = async (email, firstName, verificationToken) => {
-    const { html, subject } = await buildEmailFromTemplate('welcome', {
-        firstName,
-        headerTitle: 'Verify Your Email',
-        headerSubtitle: 'Complete your account setup',
-        headerIcon: '📧',
-        headerGradient: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-        primaryButtonColor: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-        accentColor: '#ff9800'
-    });
+  const { html, subject } = await buildEmailFromTemplate('welcome', {
+    firstName,
+    headerTitle: 'Verify Your Email',
+    headerSubtitle: 'Complete your account setup',
+    headerIcon: '📧',
+    headerGradient: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+    primaryButtonColor: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+    accentColor: '#ff9800'
+  });
 
-    const customContent = `
+  const customContent = `
     <div class="greeting">Hi ${firstName}! 👋</div>
     
     <div class="message">
@@ -545,26 +584,26 @@ const sendEmailVerification = async (email, firstName, verificationToken) => {
     </div>
   `;
 
-    const finalHtml = html.replace('{{emailContent}}', customContent);
-    const finalSubject = 'Verify Your Email - KULL';
+  const finalHtml = html.replace('{{emailContent}}', customContent);
+  const finalSubject = 'Verify Your Email - KULL';
 
-    return await sendEmail(email, finalSubject, finalHtml);
+  return await sendEmail(email, finalSubject, finalHtml);
 };
 
 const sendBulkEmailToCommunity = async (emails, subject, content, communityName) => {
-    try {
-        const emailPromises = emails.map(async (email) => {
-            const { html } = await buildEmailFromTemplate('welcome', {
-                firstName: 'Member',
-                headerTitle: 'Community Update',
-                headerSubtitle: `from ${communityName}`,
-                headerIcon: '📢',
-                headerGradient: 'linear-gradient(135deg, #673ab7 0%, #512da8 100%)',
-                primaryButtonColor: 'linear-gradient(135deg, #673ab7 0%, #512da8 100%)',
-                accentColor: '#673ab7'
-            });
+  try {
+    const emailPromises = emails.map(async (email) => {
+      const { html } = await buildEmailFromTemplate('welcome', {
+        firstName: 'Member',
+        headerTitle: 'Community Update',
+        headerSubtitle: `from ${communityName}`,
+        headerIcon: '📢',
+        headerGradient: 'linear-gradient(135deg, #673ab7 0%, #512da8 100%)',
+        primaryButtonColor: 'linear-gradient(135deg, #673ab7 0%, #512da8 100%)',
+        accentColor: '#673ab7'
+      });
 
-            const customContent = `
+      const customContent = `
         <div class="greeting">Hello! 👋</div>
         
         <div class="message">
@@ -577,55 +616,55 @@ const sendBulkEmailToCommunity = async (emails, subject, content, communityName)
         
       `;
 
-            const finalHtml = html.replace('{{emailContent}}', customContent);
-            return sendEmail(email, subject, finalHtml);
-        });
+      const finalHtml = html.replace('{{emailContent}}', customContent);
+      return sendEmail(email, subject, finalHtml);
+    });
 
-        return await Promise.allSettled(emailPromises);
-    } catch (error) {
-        console.error('Error sending bulk email:', error);
-        throw error;
-    }
+    return await Promise.allSettled(emailPromises);
+  } catch (error) {
+    console.error('Error sending bulk email:', error);
+    throw error;
+  }
 };
 
 const sendCommunityAssignmentEmail = async (email, firstName, communityName, loginIdentifier, temporaryPassword) => {
-    return await sendTemplateEmail('communityAssignment', email, {
-        firstName,
-        communityName,
-        loginIdentifier,
-        temporaryPassword
-    });
+  return await sendTemplateEmail('communityAssignment', email, {
+    firstName,
+    communityName,
+    loginIdentifier,
+    temporaryPassword
+  });
 };
 
 // Clear template cache (useful for development)
 const clearTemplateCache = () => {
-    baseTemplate = null;
-    console.log('Email template cache cleared');
+  baseTemplate = null;
+  console.log('Email template cache cleared');
 };
 
 
 
 
 module.exports = {
-    sendWelcomeEmail,
-    sendJoinRequestEmail,
-    sendJoinRequestNotificationToAdmin,
-    sendWelcomeToCommunityEmail,
-    sendCommunityRequestConfirmation,
-    sendCommunityRequestNotificationToSuperAdmin,
-    sendPasswordResetEmail,
-    sendPasswordResetConfirmation,
-    sendCommunityApprovalEmail,
-    sendCommunityRejectionEmail,
-    sendJoinApprovalEmail,
-    sendJoinRejectionEmail,
-    sendNewContentNotification,
-    sendEmailVerification,
-    sendBulkEmailToCommunity,
-    sendCommunityAssignmentEmail,
-    sendTemplateEmail, // For custom template emails
-    sendEmail, // For completely custom emails
-    clearTemplateCache
+  sendWelcomeEmail,
+  sendJoinRequestEmail,
+  sendJoinRequestNotificationToAdmin,
+  sendWelcomeToCommunityEmail,
+  sendCommunityRequestConfirmation,
+  sendCommunityRequestNotificationToSuperAdmin,
+  sendPasswordResetEmail,
+  sendPasswordResetConfirmation,
+  sendCommunityApprovalEmail,
+  sendCommunityRejectionEmail,
+  sendJoinApprovalEmail,
+  sendJoinRejectionEmail,
+  sendNewContentNotification,
+  sendEmailVerification,
+  sendBulkEmailToCommunity,
+  sendCommunityAssignmentEmail,
+  sendTemplateEmail, // For custom template emails
+  sendEmail, // For completely custom emails
+  clearTemplateCache
 };
 
 

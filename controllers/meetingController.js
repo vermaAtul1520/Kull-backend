@@ -1,14 +1,19 @@
-const MeetingDocument = require('../models/Meeting');
-const BaseController = require("../utils/baseController");
+const { getMeetingService } = require("../services/meetingService");
+const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
 
-class MeetingController extends BaseController {
-    constructor() {
-        super(MeetingDocument);
-    }
+const meetingService = getMeetingService();
+const communityService = getCommunityService();
+const userService = getUserService();
+
+class MeetingController {
 
     // Create Meeting
     createMeeting = async (req, res, next) => {
         try {
+            let communityId = req.user.community;
+            let createdBy = req.user.id;
+
             if (req.user.isSuperAdmin) {
                 // superadmin must explicitly pass community
                 if (!req.body.community) {
@@ -17,45 +22,81 @@ class MeetingController extends BaseController {
                         message: "Community is required when creating Meeting as super admin",
                     });
                 }
-                req.body.createdBy = req.body.createdBy || req.user.id;
-            } else {
-                // community admin or normal user
-                req.body.community = req.user.community;
-                req.body.createdBy = req.user.id;
+                communityId = req.body.community;
+                createdBy = req.body.createdBy || req.user.id;
             }
 
-            const meeting = await this.model.create(req.body);
+            if (typeof communityId === 'object') communityId = communityId._id.toString();
+
+            const meeting = await meetingService.createMeeting(req.body, communityId, createdBy);
             res.status(201).json({ success: true, data: meeting });
         } catch (err) {
             next(err);
         }
     };
 
-    // Get all Meetings
+    // Get all Meetings (Generic implementation refactored)
     getAllMeetings = async (req, res, next) => {
         try {
-            if (req.user.isCommunityAdmin) {
-                req.parsedQuery.filter = {
-                    ...req.parsedQuery.filter,
-                    community: req.user.community,
-                };
-            } else if (!req.user.isSuperAdmin) {
-                // Regular users see all meetings in their community
-                req.parsedQuery.filter = {
-                    ...req.parsedQuery.filter,
-                    community: req.user.community,
-                };
+            let meetings = [];
+            const limit = parseInt(req.query.limit) || 20;
+
+            // Simplified: Community Admin or User
+            if (!req.user.community && !req.user.isSuperAdmin) {
+                return res.status(403).json({ success: false, message: "Community access required" });
             }
-            return this.getAll(req, res, next);
+
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) {
+                commId = req.query.community;
+            } else if (req.user.isSuperAdmin) {
+                // If superadmin but no community, empty list (avoid scan)
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
+
+            if (typeof commId === 'object') commId = commId._id.toString();
+
+            meetings = await meetingService.getMeetingsByCommunity(commId, { limit });
+
+            // Populate
+            await this.populateMeetings(meetings);
+
+            res.status(200).json({ success: true, count: meetings.length, data: meetings });
         } catch (err) {
             next(err);
         }
     };
 
+    // Helper to populate
+    async populateMeetings(meetings) {
+        if (!meetings || meetings.length === 0) return;
+        const userIds = meetings.map(m => m.createdBy).filter(id => id);
+        // community is usually known from context, but we populate for completeness
+
+        const users = await userService.getManyByIds(userIds);
+        const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+
+        // Fetch community names if needed? 
+        // For now, simpler population
+        meetings.forEach(m => {
+            if (m.createdBy && userMap[m.createdBy]) {
+                m.createdBy = {
+                    _id: userMap[m.createdBy].id || userMap[m.createdBy]._id,
+                    name: `${userMap[m.createdBy].firstName || ''} ${userMap[m.createdBy].lastName || ''}`.trim(),
+                    email: userMap[m.createdBy].email
+                };
+            }
+            // community name populated?
+            // m.community = ... (service call if needed)
+        });
+    }
+
     // Get single Meeting
-    getMeetingById = (req, res, next) => {
+    getMeetingById = async (req, res, next) => {
         try {
-            return this.getOne(req, res, next);
+            const meeting = await meetingService.getMeetingById(req.params.id);
+            if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+            res.status(200).json({ success: true, data: meeting });
         } catch (err) {
             next(err);
         }
@@ -64,14 +105,17 @@ class MeetingController extends BaseController {
     // Update Meeting
     updateMeeting = async (req, res, next) => {
         try {
-            const meeting = await this.model.findById(req.params.id);
+            const meeting = await meetingService.getMeetingById(req.params.id);
             if (!meeting) {
                 return res.status(404).json({ success: false, message: "Meeting not found" });
             }
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (meeting.community.toString() !== req.user.community._id.toString()) {
+                const mCommId = meeting.communityId || meeting.community;
+                const uCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+                if (mCommId.toString() !== uCommId) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to update Meeting outside your community",
@@ -79,7 +123,8 @@ class MeetingController extends BaseController {
                 }
             }
 
-            return this.updateOne(req, res, next);
+            const updated = await meetingService.updateMeeting(req.params.id, req.body);
+            res.status(200).json({ success: true, data: updated });
         } catch (err) {
             next(err);
         }
@@ -88,14 +133,17 @@ class MeetingController extends BaseController {
     // Delete Meeting
     deleteMeeting = async (req, res, next) => {
         try {
-            const meeting = await this.model.findById(req.params.id);
+            const meeting = await meetingService.getMeetingById(req.params.id);
             if (!meeting) {
                 return res.status(404).json({ success: false, message: "Meeting not found" });
             }
 
             // Restriction logic
             if (!req.user.isSuperAdmin) {
-                if (meeting.community.toString() !== req.user.community._id.toString()) {
+                const mCommId = meeting.communityId || meeting.community;
+                const uCommId = req.user.community._id ? req.user.community._id.toString() : req.user.community;
+
+                if (mCommId.toString() !== uCommId) {
                     return res.status(403).json({
                         success: false,
                         message: "Not authorized to delete Meeting outside your community",
@@ -103,7 +151,8 @@ class MeetingController extends BaseController {
                 }
             }
 
-            return this.deleteOne(req, res, next);
+            await meetingService.deleteMeeting(req.params.id);
+            res.status(200).json({ success: true, message: "Deleted" });
         } catch (err) {
             next(err);
         }
@@ -115,36 +164,31 @@ class MeetingController extends BaseController {
             const { organizer } = req.params;
             const { page = 1, limit = 10 } = req.query;
 
-            let filter = {
-                organizer: new RegExp(organizer, 'i'),
-                isActive: true
-            };
+            // Resolve Community
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (!commId && !req.user.isSuperAdmin) return res.status(403).json({ message: "Community required" });
+            if (!commId) return res.status(200).json({ success: true, data: [] });
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                filter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                filter.createdBy = req.user.id;
-            }
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            const meetings = await this.model.find(filter)
-                .populate([
-                    { path: 'createdBy', select: 'name email' },
-                    { path: 'community', select: 'name' }
-                ])
-                .sort({ createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(parseInt(limit));
+            const meetings = await meetingService.searchByOrganizer(commId, organizer);
 
-            const total = await this.model.countDocuments(filter);
+            // Populate
+            await this.populateMeetings(meetings);
+
+            // Pagination (Manual slice as we search all)
+            const startIndex = (page - 1) * limit;
+            const endIndex = page * limit;
+            const paginated = meetings.slice(startIndex, endIndex);
 
             res.status(200).json({
                 success: true,
-                data: meetings,
+                data: paginated,
                 pagination: {
                     currentPage: parseInt(page),
-                    totalPages: Math.ceil(total / limit),
-                    totalItems: total,
+                    totalPages: Math.ceil(meetings.length / limit),
+                    totalItems: meetings.length,
                     itemsPerPage: parseInt(limit)
                 }
             });
@@ -158,42 +202,23 @@ class MeetingController extends BaseController {
         try {
             const { limit = 5 } = req.query;
 
-            let filter = { isActive: true };
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                filter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                filter.createdBy = req.user.id;
-            }
+            if (!commId) return res.status(200).json({ success: true, data: [] });
 
-            // Find upcoming meetings based on date/time
-            const currentDate = new Date().toISOString().split('T')[0];
-            const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+            const meetings = await meetingService.getUpcomingMeetings(commId);
+            // Populate
+            await this.populateMeetings(meetings);
 
-            const upcomingFilter = {
-                ...filter,
-                $or: [
-                    { meetingDate: { $gt: currentDate } },
-                    {
-                        meetingDate: currentDate,
-                        meetingTime: { $gte: currentTime }
-                    }
-                ]
-            };
-
-            const meetings = await this.model.find(upcomingFilter)
-                .populate([
-                    { path: 'createdBy', select: 'name email' },
-                    { path: 'community', select: 'name' }
-                ])
-                .sort({ meetingDate: 1, meetingTime: 1 })
-                .limit(parseInt(limit));
+            // Limit
+            const limited = meetings.slice(0, parseInt(limit));
 
             res.status(200).json({
                 success: true,
-                data: meetings,
-                count: meetings.length
+                data: limited,
+                count: limited.length
             });
         } catch (err) {
             next(err);
@@ -203,65 +228,17 @@ class MeetingController extends BaseController {
     // Get meeting statistics
     getMeetingStats = async (req, res, next) => {
         try {
-            let matchFilter = { isActive: true };
+            let commId = req.user.community;
+            if (req.user.isSuperAdmin && req.query.community) commId = req.query.community;
+            if (typeof commId === 'object') commId = commId._id.toString();
 
-            // Apply community restrictions
-            if (req.user.isCommunityAdmin) {
-                matchFilter.community = req.user.community;
-            } else if (!req.user.isSuperAdmin) {
-                matchFilter.createdBy = req.user.id;
-            }
+            if (!commId) return res.status(200).json({ success: true, data: {} });
 
-            const totalMeetings = await this.model.countDocuments(matchFilter);
-
-            // Get upcoming meetings count
-            const currentDate = new Date().toISOString().split('T')[0];
-            const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
-
-            const upcomingCount = await this.model.countDocuments({
-                ...matchFilter,
-                $or: [
-                    { meetingDate: { $gt: currentDate } },
-                    {
-                        meetingDate: currentDate,
-                        meetingTime: { $gte: currentTime }
-                    }
-                ]
-            });
-
-            const documentTypeStats = await this.model.aggregate([
-                { $match: matchFilter },
-                { $group: { _id: '$documentType', count: { $sum: 1 } } },
-                { $sort: { count: -1 } }
-            ]);
-
-            const typeStats = await this.model.aggregate([
-                { $match: matchFilter },
-                { $group: { _id: '$type', count: { $sum: 1 } } },
-                { $sort: { count: -1 } }
-            ]);
-
-            let communityStats = [];
-            if (req.user.isSuperAdmin) {
-                communityStats = await this.model.aggregate([
-                    { $match: { ...matchFilter, community: { $exists: true } } },
-                    { $group: { _id: '$community', count: { $sum: 1 } } },
-                    { $lookup: { from: 'communities', localField: '_id', foreignField: '_id', as: 'communityInfo' } },
-                    { $unwind: '$communityInfo' },
-                    { $project: { _id: 1, count: 1, name: '$communityInfo.name' } },
-                    { $sort: { count: -1 } }
-                ]);
-            }
+            const stats = await meetingService.getMeetingStats(commId);
 
             res.status(200).json({
                 success: true,
-                data: {
-                    totalMeetings,
-                    upcomingMeetingsCount: upcomingCount,
-                    documentTypeBreakdown: documentTypeStats,
-                    fileTypeBreakdown: typeStats,
-                    ...(req.user.isSuperAdmin && { communityBreakdown: communityStats })
-                }
+                data: stats
             });
         } catch (err) {
             next(err);
