@@ -159,12 +159,15 @@ class CommunityRepository extends BaseRepository {
             const regex = new RegExp(query, 'i');
             return this.find({ name: regex }, options);
         } else {
-            const result = await this.getDb().scan(this.tableName, {
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: 'contains(#name, :query)',
                 filterValues: { ':query': query },
-                limit: options.limit
+                expressionAttributeNames: { '#name': 'name' }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 

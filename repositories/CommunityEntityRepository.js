@@ -76,39 +76,64 @@ class CommunityEntityRepository extends BaseRepository {
                 populate: options.populate
             });
         } else {
-            let filterExpression = undefined;
-            let filterValues = {};
+            // DynamoDB: Fetch all items for community, then filter/sort/skip/limit in memory
+            // This is necessary because DynamoDB Query doesn't support skip/offset directly
+            // and complex filters are limited. Given community sizes, this is acceptable.
 
-            // Build filter expression from options.filters
-            if (options.filters) {
-                const conditions = [];
-                Object.entries(options.filters).forEach(([key, value], index) => {
-                    conditions.push(`#filter${index} = :filterVal${index}`);
-                    filterValues[`:filterVal${index}`] = value;
-                });
-                if (conditions.length > 0) {
-                    filterExpression = conditions.join(' AND ');
-                }
+            let allItems = [];
+            let lastEvaluatedKey = undefined;
+
+            try {
+                do {
+                    const params = {
+                        keyCondition: 'communityId = :communityId',
+                        keyValues: { ':communityId': communityId },
+                        exclusiveStartKey: lastEvaluatedKey
+                    };
+
+                    const result = await this.getDb().query(this.tableName, params);
+                    allItems.push(...result.items);
+                    lastEvaluatedKey = result.lastEvaluatedKey;
+                } while (lastEvaluatedKey);
+            } catch (error) {
+                console.error(`Error fetching all community items for ${this.tableName}:`, error);
+                throw error;
             }
 
-            const expressionAttributeNames = {};
-            if (options.filters) {
-                Object.keys(options.filters).forEach((key, index) => {
-                    expressionAttributeNames[`#filter${index}`] = key;
+            // 1. Transform items first (mappings id <-> _id)
+            let processedItems = this._transformResult(allItems);
+
+            // 2. Apply Filters (In-Memory)
+            if (options.filters && Object.keys(options.filters).length > 0) {
+                processedItems = processedItems.filter(item => {
+                    return Object.entries(options.filters).every(([key, value]) => {
+                        // Handle potential Mongo operators if needed, but for now simple equality
+                        // If value is regex
+                        if (value instanceof RegExp) {
+                            return value.test(item[key]);
+                        }
+                        // Simple equality (loose for string/number match)
+                        return item[key] == value;
+                    });
                 });
             }
 
-            const result = await this.getDb().query(this.tableName, {
-                keyCondition: 'communityId = :communityId',
-                keyValues: { ':communityId': communityId },
-                filterExpression,
-                filterValues: Object.keys(filterValues).length > 0 ? filterValues : undefined,
-                expressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
-                limit: options.limit,
-                scanForward: false // Newest first by default
+            // 3. Apply Sort (Default: createdAt desc)
+            // DynamoDB items usually have createdAt
+            processedItems.sort((a, b) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB - dateA; // Descending
             });
 
-            return this._transformResult(result.items);
+            // 4. Counts for metadata (optional, but good for debugging)
+            // const total = processedItems.length;
+
+            // 5. Pagination
+            const skip = options.skip || 0;
+            const limit = options.limit || processedItems.length;
+
+            return processedItems.slice(skip, skip + limit);
         }
     }
 

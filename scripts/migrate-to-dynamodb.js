@@ -155,10 +155,36 @@ function transformCommunityConfig(doc) {
     const obj = doc.toObject ? doc.toObject() : doc;
     const cleaned = cleanObjectIds(obj);
     const commId = obj.community?.toString() || obj._id.toString();
+
+    // Apply defaults (since .lean() bypasses Mongoose defaults)
+    const defaults = {
+        drorOption: {
+            occasions: { visible: true, label: "Occasions", labelHindi: "अवसर" },
+            kartavya: { visible: true, label: "Kartavya", labelHindi: "कर्तव्य" },
+            bhajan: { visible: true, label: "Bhajan", labelHindi: "भजन" },
+            games: { visible: true, label: "Games", labelHindi: "खेल" },
+            citySearch: { visible: true, label: "City Search", labelHindi: "शहर खोज" },
+            organizationOfficer: { visible: true, label: "Organization Officer", labelHindi: "संगठन अधिकारी" },
+            education: { visible: true, label: "Education", labelHindi: "शिक्षा" },
+            employment: { visible: true, label: "Employment", labelHindi: "रोजगार" },
+            sports: { visible: true, label: "Sports", labelHindi: "खेल-कूद" },
+            dukan: { visible: true, label: "Dukan", labelHindi: "दुकान" },
+            meetings: { visible: true, label: "Meetings", labelHindi: "बैठकें" },
+            appeal: { visible: true, label: "Appeal", labelHindi: "अपील" },
+            vote: { visible: true, label: "Vote", labelHindi: "मतदान" },
+            family: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" },
+            familyTree: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" }
+        },
+        banner: [],
+        smaajKeTaaj: [],
+        gotra: []
+    };
+
     return {
         communityId: commId, // Required for PK
         community: commId,   // Required for App
-        ...cleaned,
+        ...defaults,         // Apply defaults first
+        ...cleaned,          // Overwrite with actual data
         _id: undefined,
         __v: undefined,
     };

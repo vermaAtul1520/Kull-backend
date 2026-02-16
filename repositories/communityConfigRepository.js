@@ -9,6 +9,56 @@ class CommunityConfigRepository extends BaseRepository {
     }
 
     /**
+     * Override create to map 'community' field to 'communityId' partition key for DynamoDB
+     */
+    async create(data) {
+        if (this.isMongoDB()) {
+            return super.create(data);
+        } else {
+            // DynamoDB table uses 'communityId' as partition key
+            if (data.community && !data.communityId) {
+                data.communityId = data.community;
+            }
+            if (!data.communityId) {
+                throw new Error('communityId is required to create community config');
+            }
+
+            // Remove auto-generated 'id' — communityId is the primary key
+            delete data.id;
+
+            // Default values (mimicking Mongoose Schema)
+            if (!data.drorOption) {
+                data.drorOption = {
+                    occasions: { visible: true, label: "Occasions", labelHindi: "अवसर" },
+                    kartavya: { visible: true, label: "Kartavya", labelHindi: "कर्तव्य" },
+                    bhajan: { visible: true, label: "Bhajan", labelHindi: "भजन" },
+                    games: { visible: true, label: "Games", labelHindi: "खेल" },
+                    citySearch: { visible: true, label: "City Search", labelHindi: "शहर खोज" },
+                    organizationOfficer: { visible: true, label: "Organization Officer", labelHindi: "संगठन अधिकारी" },
+                    education: { visible: true, label: "Education", labelHindi: "शिक्षा" },
+                    employment: { visible: true, label: "Employment", labelHindi: "रोजगार" },
+                    sports: { visible: true, label: "Sports", labelHindi: "खेल-कूद" },
+                    dukan: { visible: true, label: "Dukan", labelHindi: "दुकान" },
+                    meetings: { visible: true, label: "Meetings", labelHindi: "बैठकें" },
+                    appeal: { visible: true, label: "Appeal", labelHindi: "अपील" },
+                    vote: { visible: true, label: "Vote", labelHindi: "मतदान" },
+                    family: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" },
+                    familyTree: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" }
+                };
+            }
+            if (!data.banner) data.banner = [];
+            if (!data.smaajKeTaaj) data.smaajKeTaaj = [];
+            if (!data.gotra) data.gotra = [];
+
+            const now = new Date().toISOString();
+            if (!data.createdAt) data.createdAt = now;
+            data.updatedAt = now;
+            const result = await this.getDb().putItem(this.tableName, data);
+            return this._transformResult(result);
+        }
+    }
+
+    /**
      * Find configuration by community ID
      * @param {string} communityId 
      * @returns {Promise<Object|null>}
@@ -17,7 +67,8 @@ class CommunityConfigRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return this.findOne({ community: communityId });
         } else {
-            return this.getDb().getItem(this.tableName, { communityId });
+            const result = await this.getDb().getItem(this.tableName, { communityId });
+            return this._transformResult(result);
         }
     }
 

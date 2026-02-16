@@ -33,13 +33,12 @@ class BhajanRepository extends CommunityEntityRepository {
                 title: regex
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 keyCondition: 'communityId = :communityId',
                 keyValues: { ':communityId': communityId },
                 filterExpression: 'contains(title, :query)',
                 filterValues: { ':query': query }
             });
-            return result.items;
         }
     }
 }

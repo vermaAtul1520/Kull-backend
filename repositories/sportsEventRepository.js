@@ -28,16 +28,21 @@ class SportsEventRepository extends CommunityEntityRepository {
         } else {
             const startSk = generateSortKey(now, '');
 
-            const result = await this.getDb().query(this.tableName, {
+            const items = await this._queryAll(this.tableName, {
                 keyCondition: 'communityId = :communityId AND sk >= :startSk',
                 keyValues: {
                     ':communityId': communityId,
                     ':startSk': startSk
                 },
-                limit: options.limit,
                 scanForward: true
             });
-            return result.items;
+
+            // Sort ascending by date
+            items.sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0));
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 
@@ -99,16 +104,17 @@ class SportsEventRepository extends CommunityEntityRepository {
                 isActive: true
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            const items = await this._queryAll(this.tableName, {
                 keyCondition: 'communityId = :communityId',
-                keyValues: { ':communityId': communityId, ':organizer': organizer, ':isActive': true },
+                keyValues: { ':communityId': communityId },
                 filterExpression: 'contains(#organizer, :organizer) AND #isActive = :isActive',
+                filterValues: { ':organizer': organizer, ':isActive': true },
                 expressionAttributeNames: {
                     '#organizer': 'organizer',
                     '#isActive': 'isActive'
                 }
             });
-            return result.items;
+            return items;
         }
     }
 }

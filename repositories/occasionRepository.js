@@ -18,14 +18,53 @@ class OccasionRepository extends CommunityEntityRepository {
         if (this.isMongoDB()) {
             return this.find({ category: categoryId }, options);
         } else {
-            const result = await this.getDb().query(this.tableName, {
-                indexName: 'category-index',
-                keyCondition: 'categoryId = :categoryId',
-                keyValues: { ':categoryId': categoryId },
-                limit: options.limit,
-                scanForward: false
+            // DynamoDB: Fetch all for category, then filter/sort/skip/limit in memory
+            let allItems = [];
+            let lastEvaluatedKey = undefined;
+
+            try {
+                do {
+                    const params = {
+                        indexName: 'category-index',
+                        keyCondition: 'categoryId = :categoryId',
+                        keyValues: { ':categoryId': categoryId },
+                        exclusiveStartKey: lastEvaluatedKey
+                    };
+
+                    const result = await this.getDb().query(this.tableName, params);
+                    allItems.push(...result.items);
+                    lastEvaluatedKey = result.lastEvaluatedKey;
+                } while (lastEvaluatedKey);
+            } catch (error) {
+                console.error(`Error fetching all category occasions:`, error);
+                throw error;
+            }
+
+            // 1. Transform
+            let processedItems = this._transformResult(allItems);
+
+            // 2. Sort (Default: createdAt desc - but index SortKey is sk=date#id so it is sorted by date)
+            // DynamoDB query with scanForward: false already sorts by SK (date) descending.
+            // But if we fetch multiple pages, they are sorted per page. Concatenating them maintains sort?
+            // Yes, standard query returns sorted items. Concatenating pages sequentially (if scanning forward) is sorted.
+            // But we used scanForward: false?
+            // "If you Query a local secondary index or a global secondary index, the results are returned in Sort Key order."
+            // If we paginate backwards (scanForward: false), the first page has the newest items. The second page has the next newest.
+            // So concatenating `allItems.push(...result.items)` maintains the order: [Newest...Newer...Old...Oldest].
+            // So we don't strictly *need* to re-sort if we trust DynamoDB order, but in-memory sort is safer if we merge or modify.
+            // Let's re-sort to be safe and consistent with other repos. Date from SK or createdAt.
+
+            processedItems.sort((a, b) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB - dateA;
             });
-            return result.items;
+
+            // 3. Pagination
+            const skip = options.skip || 0;
+            const limit = options.limit || processedItems.length;
+
+            return processedItems.slice(skip, skip + limit);
         }
     }
 
@@ -78,19 +117,46 @@ class OccasionRepository extends CommunityEntityRepository {
                 ...options,
                 sort: { date: 1 }
             });
-        } else {
             const startSk = generateSortKey(now, '');
 
-            const result = await this.getDb().query(this.tableName, {
-                keyCondition: 'communityId = :communityId AND sk >= :startSk',
-                keyValues: {
-                    ':communityId': communityId,
-                    ':startSk': startSk
-                },
-                limit: options.limit,
-                scanForward: true
+            let allItems = [];
+            let lastEvaluatedKey = undefined;
+
+            try {
+                do {
+                    const params = {
+                        keyCondition: 'communityId = :communityId AND sk >= :startSk',
+                        keyValues: {
+                            ':communityId': communityId,
+                            ':startSk': startSk
+                        },
+                        exclusiveStartKey: lastEvaluatedKey
+                    };
+
+                    const result = await this.getDb().query(this.tableName, params);
+                    allItems.push(...result.items);
+                    lastEvaluatedKey = result.lastEvaluatedKey;
+                } while (lastEvaluatedKey);
+            } catch (error) {
+                console.error(`Error fetching upcoming occasions:`, error);
+                throw error;
+            }
+
+            // 1. Transform
+            let processedItems = this._transformResult(allItems);
+
+            // 2. Sort (Ascending date for upcoming)
+            processedItems.sort((a, b) => {
+                const dateA = new Date(a.date || a.createdAt || 0);
+                const dateB = new Date(b.date || b.createdAt || 0);
+                return dateA - dateB;
             });
-            return result.items;
+
+            // 3. Pagination
+            const skip = options.skip || 0;
+            const limit = options.limit || processedItems.length;
+
+            return processedItems.slice(skip, skip + limit);
         }
     }
 

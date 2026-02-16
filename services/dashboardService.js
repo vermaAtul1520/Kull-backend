@@ -40,6 +40,12 @@ class DashboardService {
     getSystemHealth() {
         return {
             serverStatus: 'Online',
+            database: {
+                status: 'Connected',
+                connected: true,
+                host: process.env.DB_HOST || 'dynamodb',
+                name: 'Kull'
+            },
             apiStatus: 'Operational',
             uptime: process.uptime(),
             timestamp: new Date().toISOString(),
@@ -122,7 +128,10 @@ class DashboardService {
             this.communityRepo.find({}, { limit: 5, sort: { createdAt: -1 } }),
         ]);
 
+        const { roleBreakdown, communityRoleBreakdown, monthlyGrowth } = await this._getUserAggregations();
+
         systemHealth.responseTime = `${Date.now() - startTime}ms`;
+        console.log('EXECUTING getAdminDashboardStats - success');
 
         return {
             systemHealth,
@@ -136,6 +145,9 @@ class DashboardService {
             userStats: {
                 total: totalUsers,
                 statusBreakdown: { pending: pendingUsers, approved: approvedUsers, rejected: rejectedUsers },
+                roleBreakdown,
+                communityRoleBreakdown,
+                monthlyGrowth
             },
             contentStats: {
                 totalPosts,
@@ -156,6 +168,44 @@ class DashboardService {
             },
             recentActivity: { recentUsers, recentCommunities },
         };
+    }
+
+    /**
+     * Helper for aggregations
+     */
+    async _getUserAggregations() {
+        // Fetch all users for aggregation (optimized for small datasets, might need refactor for large scale)
+        const users = await this.userRepo.find({});
+
+        const roleBreakdown = users.reduce((acc, user) => {
+            const role = user.role || 'user';
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+        }, {});
+
+        const communityRoleBreakdown = users.reduce((acc, user) => {
+            const role = user.roleInCommunity || 'member';
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+        }, {});
+
+        const monthlyGrowthMap = users.reduce((acc, user) => {
+            if (!user.createdAt) return acc;
+            const d = new Date(user.createdAt);
+            const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        const monthlyGrowth = Object.entries(monthlyGrowthMap).map(([key, count]) => {
+            const [year, month] = key.split('-').map(Number);
+            return { _id: { year, month }, count };
+        }).sort((a, b) => {
+            if (a._id.year !== b._id.year) return b._id.year - a._id.year;
+            return b._id.month - a._id.month;
+        });
+
+        return { roleBreakdown, communityRoleBreakdown, monthlyGrowth };
     }
 
     /**

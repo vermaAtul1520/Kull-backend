@@ -1,9 +1,9 @@
 function queryParser(opts = {}) {
   return (req, res, next) => {
-    const { filter, sort, fields, page = 1, limit = 10 } = req.query;
+    const { filter, sort, fields, page = 1, limit } = req.query;
 
     const parsedFilter = {};
-    
+
     // Parse JSON filter if provided
     if (filter) {
       try {
@@ -15,7 +15,7 @@ function queryParser(opts = {}) {
         return res.status(400).json({ success: false, message: "Invalid filter" });
       }
     }
-    
+
     // Also check for individual query parameters that match allowFilterFields
     if (opts.allowFilterFields && Array.isArray(opts.allowFilterFields)) {
       for (const field of opts.allowFilterFields) {
@@ -37,13 +37,14 @@ function queryParser(opts = {}) {
 
     const projection = fields
       ? fields
-          .split(",")
-          .filter((f) => opts.allowProjectFields?.includes(f))
-          .join(" ")
+        .split(",")
+        .filter((f) => opts.allowProjectFields?.includes(f))
+        .join(" ")
       : null;
 
     const maxLimit = opts.maxLimit || 100;
-    const finalLimit = Math.min(parseInt(limit, 10) || 10, maxLimit);
+    const defaultLimit = opts.defaultLimit || 10;
+    const finalLimit = Math.min(parseInt(limit, 10) || defaultLimit, maxLimit);
     const skip = (parseInt(page, 10) - 1) * finalLimit;
 
     req.parsedQuery = {

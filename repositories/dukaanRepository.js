@@ -29,12 +29,14 @@ class DukaanRepository extends CommunityEntityRepository {
         if (this.isMongoDB()) {
             return this.find({ owner: ownerId }, options);
         } else {
-            const result = await this.getDb().scan(this.tableName, {
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: 'ownerId = :ownerId',
-                filterValues: { ':ownerId': ownerId },
-                limit: options.limit
+                filterValues: { ':ownerId': ownerId }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 
@@ -52,13 +54,13 @@ class DukaanRepository extends CommunityEntityRepository {
                 name: regex
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 keyCondition: 'communityId = :communityId',
                 keyValues: { ':communityId': communityId },
                 filterExpression: 'contains(#name, :query)',
-                filterValues: { ':query': query }
+                filterValues: { ':query': query },
+                expressionAttributeNames: { '#name': 'name' }
             });
-            return result.items;
         }
     }
 }

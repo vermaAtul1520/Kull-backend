@@ -329,6 +329,54 @@ class BaseRepository {
     }
 
     // ==========================================
+    // DynamoDB pagination helpers
+    // ==========================================
+
+    /**
+     * Query all items across multiple DynamoDB pages (loops on LastEvaluatedKey)
+     * Returns transformed results with id/_id normalization
+     * @param {string} tableName
+     * @param {Object} params - Query params (keyCondition, keyValues, indexName, filterExpression, filterValues, expressionAttributeNames, scanForward)
+     * @returns {Promise<Array<Object>>}
+     * @protected
+     */
+    async _queryAll(tableName, params) {
+        let allItems = [];
+        let lastEvaluatedKey;
+        do {
+            const result = await this.getDb().query(tableName, {
+                ...params,
+                exclusiveStartKey: lastEvaluatedKey
+            });
+            allItems.push(...result.items);
+            lastEvaluatedKey = result.lastEvaluatedKey;
+        } while (lastEvaluatedKey);
+        return this._transformResult(allItems);
+    }
+
+    /**
+     * Scan all items across multiple DynamoDB pages (loops on LastEvaluatedKey)
+     * Returns transformed results with id/_id normalization
+     * @param {string} tableName
+     * @param {Object} params - Scan params (filterExpression, filterValues, expressionAttributeNames)
+     * @returns {Promise<Array<Object>>}
+     * @protected
+     */
+    async _scanAll(tableName, params = {}) {
+        let allItems = [];
+        let lastEvaluatedKey;
+        do {
+            const result = await this.getDb().scan(tableName, {
+                ...params,
+                exclusiveStartKey: lastEvaluatedKey
+            });
+            allItems.push(...result.items);
+            lastEvaluatedKey = result.lastEvaluatedKey;
+        } while (lastEvaluatedKey);
+        return this._transformResult(allItems);
+    }
+
+    // ==========================================
     // Helper methods for DynamoDB
     // ==========================================
 

@@ -50,30 +50,47 @@ class PostRepository extends BaseRepository {
                 populate: options.populate || ['author', 'likes', 'comments']
             });
         } else {
-            let filterExpression = undefined;
-            let filterValues = {};
+            // DynamoDB: Fetch all posts for community, then filter/sort/skip/limit in memory
+            let allItems = [];
+            let lastEvaluatedKey = undefined;
 
-            if (options.isActive !== undefined) {
-                filterExpression = 'isActive = :isActive';
-                filterValues[':isActive'] = options.isActive;
+            try {
+                do {
+                    const params = {
+                        keyCondition: 'communityId = :communityId',
+                        keyValues: { ':communityId': communityId },
+                        exclusiveStartKey: lastEvaluatedKey
+                    };
+
+                    const result = await this.getDb().query(this.tableName, params);
+                    allItems.push(...result.items);
+                    lastEvaluatedKey = result.lastEvaluatedKey;
+                } while (lastEvaluatedKey);
+            } catch (error) {
+                console.error(`Error fetching all community posts:`, error);
+                throw error;
             }
 
-            const expressionAttributeNames = {};
+            // 1. Transform
+            let processedItems = this._transformResult(allItems);
+
+            // 2. Apply Filters (In-Memory)
             if (options.isActive !== undefined) {
-                expressionAttributeNames['#isActive'] = 'isActive';
+                processedItems = processedItems.filter(p => p.isActive === options.isActive);
             }
 
-            const result = await this.getDb().query(this.tableName, {
-                keyCondition: 'communityId = :communityId',
-                keyValues: { ':communityId': communityId },
-                filterExpression: options.isActive !== undefined ? '#isActive = :isActive' : undefined,
-                filterValues: Object.keys(filterValues).length > 0 ? filterValues : undefined,
-                expressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
-                limit: options.limit,
-                scanForward: false // Newest first
+            // 3. Apply Sort (Default: createdAt desc)
+            processedItems.sort((a, b) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB - dateA;
             });
 
-            return result.items;
+            // 4. Pagination
+            const skip = options.skip || 0;
+            const limit = options.limit || processedItems.length;
+
+            return processedItems.slice(skip, skip + limit);
         }
     }
 
@@ -91,14 +108,16 @@ class PostRepository extends BaseRepository {
                 sort: options.sort || { createdAt: -1 }
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            const items = await this._queryAll(this.tableName, {
                 indexName: 'author-index',
                 keyCondition: 'authorId = :authorId',
                 keyValues: { ':authorId': authorId },
-                limit: options.limit,
                 scanForward: false
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 

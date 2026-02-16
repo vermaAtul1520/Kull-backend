@@ -20,7 +20,7 @@ router.delete("/:id", isAuthenticated, postController.deletePost);
 
 // likes
 router.post('/likes/:postId', isAuthenticated, postController.toggleLike)
-router.get('/likes/:postId', postController.getPostLikes);
+router.get('/likes/:postId', isAuthenticated, postController.getPostLikes);
 
 // Comments
 router.post('/comments/:postId', isAuthenticated, postController.createComment);

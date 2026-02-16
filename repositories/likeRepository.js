@@ -11,11 +11,10 @@ class LikeRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return this.find({ post: postId }, { populate: 'user' });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 keyCondition: 'postId = :postId',
                 keyValues: { ':postId': postId }
             });
-            return result.items;
         }
     }
 
@@ -23,12 +22,11 @@ class LikeRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return this.find({ user: userId });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 indexName: 'user-index',
                 keyCondition: 'userId = :userId',
                 keyValues: { ':userId': userId }
             });
-            return result.items;
         }
     }
 

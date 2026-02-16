@@ -68,7 +68,7 @@ Resources:
           
           # Email Configuration
           USE_AWS_SES: True
-          SES_FROM_EMAIL: !Ref SUPPORT_EMAIL
+          SES_FROM_EMAIL: kullofficial01@gmail.com
           USE_SENDGRID: False
           SENDGRID_API_KEY: ""
           EMAIL_USER: ""
@@ -76,7 +76,7 @@ Resources:
           EMAIL_FROM_ADDRESS: ""
           EMAIL_FROM_NAME: "KULL Platform"
           SUPER_ADMIN_EMAIL: atulverma1520@gmail.com
-          SUPPORT_EMAIL: rjrootstorage@gmail.com
+          SUPPORT_EMAIL: kullofficial01@gmail.com
           
           # External APIs
           YOUTUBE_API_KEY: AIzaSyBmfodwQJ5a9CNjYzktXlfHtVF3U0n6Hxk

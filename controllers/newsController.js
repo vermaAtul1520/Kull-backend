@@ -165,10 +165,13 @@ exports.getCommunityNews = async (req, res, next) => {
       author: userMap[n.author] ? {
         _id: userMap[n.author].id || userMap[n.author]._id,
         firstName: userMap[n.author].firstName,
-        lastName: userMap[n.author].lastName,
+        lastName: userMap[n.author].lastName || "",
         email: userMap[n.author].email
       } : n.author,
-      community: comm ? { name: comm.name } : n.community
+      community: comm ? {
+        _id: comm.id || comm._id,
+        name: comm.name
+      } : n.community
     }));
 
     return res.status(200).json({
@@ -218,8 +221,16 @@ exports.getSingleNews = async (req, res, next) => {
 
     const populated = {
       ...news,
-      author: user ? { firstName: user.firstName, lastName: user.lastName, email: user.email } : news.author,
-      community: comm ? { name: comm.name } : news.community
+      author: user ? {
+        _id: user.id || user._id,
+        firstName: user.firstName,
+        lastName: user.lastName || "",
+        email: user.email
+      } : news.author,
+      community: comm ? {
+        _id: comm.id || comm._id,
+        name: comm.name
+      } : news.community
     };
 
     return res.status(200).json({

@@ -30,16 +30,15 @@ class AppealRepository extends CommunityEntityRepository {
         if (this.isMongoDB()) {
             return this.find({ user: userId }, options);
         } else {
-            // Scan for now, or use index if available. Key Schema is communityId (PK), sk (SK).
-            // No userid-index mentioned in dynamo-tables.js for Appeal?
-            // Assuming scan is fallback.
-            const result = await this.getDb().scan(this.tableName, {
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: '#user = :userId',
                 filterValues: { ':userId': userId },
-                expressionAttributeNames: { '#user': 'user' }, // 'user' might be reserved?
-                limit: options.limit
+                expressionAttributeNames: { '#user': 'user' }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 }

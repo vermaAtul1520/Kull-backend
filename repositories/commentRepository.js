@@ -16,13 +16,15 @@ class CommentRepository extends BaseRepository {
                 populate: options.populate || 'user'
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            const items = await this._queryAll(this.tableName, {
                 keyCondition: 'postId = :postId',
                 keyValues: { ':postId': postId },
-                limit: options.limit,
                 scanForward: false
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 
@@ -40,7 +42,10 @@ class CommentRepository extends BaseRepository {
             if (typeof userId === 'object') userId = userId.toString();
 
             return this.getDb().putItem(this.tableName, {
-                id, sk, postId, userId, content: data.content, createdAt
+                id, sk, postId, userId,
+                content: data.content,
+                parentComment: data.parentComment,
+                createdAt
             });
         }
     }

@@ -18,11 +18,10 @@ class FamilyRepository extends BaseRepository {
                 populate: ['relatedUser', 'user']
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 keyCondition: 'userId = :userId',
                 keyValues: { ':userId': userId }
             });
-            return result.items;
         }
     }
 
@@ -37,12 +36,11 @@ class FamilyRepository extends BaseRepository {
                 populate: ['relatedUser', 'user']
             });
         } else {
-            const result = await this.getDb().query(this.tableName, {
+            return this._queryAll(this.tableName, {
                 indexName: 'reverse-index',
                 keyCondition: 'relatedUserId = :relatedUserId',
                 keyValues: { ':relatedUserId': userId }
             });
-            return result.items;
         }
     }
 

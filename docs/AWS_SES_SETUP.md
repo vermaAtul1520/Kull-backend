@@ -45,7 +45,7 @@ USE_AWS_SES=true
 AWS_REGION=us-east-1
 
 # Verified Sender Email
-SES_FROM_EMAIL=your-verified-email@example.com
+SES_FROM_EMAIL=kullofficial01@gmail.com
 
 # Disable SendGrid if you want to use SES as primary
 USE_SENDGRID=false

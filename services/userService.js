@@ -146,16 +146,13 @@ class UserService {
         }
 
         // Check duplicates
-        const existing = await this.userRepo.find({
-            $or: [
-                { email: userData.email },
-                { phone: userData.phone }
-            ]
-        });
+        const checkPromises = [];
+        if (userData.email) checkPromises.push(this.userRepo.findByEmail(userData.email));
+        if (userData.phone) checkPromises.push(this.userRepo.findByPhone(userData.phone));
 
-        // existing is array in find
-        if (existing && existing.length > 0) {
-            throw { status: 400, message: "User with this email or phone already exists" };
+        const existingUsers = await Promise.all(checkPromises);
+        if (existingUsers.some(u => u)) {
+            throw { status: 400, message: 'User with this email or phone already exists' };
         }
 
         const plainPassword = userData.password;
@@ -209,7 +206,53 @@ class UserService {
      * Advanced search for community users (filters)
      */
     async searchCommunityUsers(communityId, filter = {}, options = {}) {
-        // Merge filter with community
+        // DynamoDB: In-memory filtering/sorting/pagination
+        if (this.userRepo.isDynamoDB()) {
+            // 1. Fetch all users for the community (no limit)
+            const allUsers = await this.userRepo.findByCommunity(communityId, { limit: undefined });
+
+            let filtered = allUsers;
+
+            // 2. Apply search
+            if (filter.search) {
+                const term = filter.search.toLowerCase();
+                filtered = filtered.filter(u =>
+                    (u.firstName && u.firstName.toLowerCase().includes(term)) ||
+                    (u.lastName && u.lastName.toLowerCase().includes(term)) ||
+                    (u.email && u.email.toLowerCase().includes(term)) ||
+                    (u.phone && u.phone.includes(term)) ||
+                    (u.gotra && u.gotra && u.gotra.toLowerCase().includes(term))
+                );
+            }
+
+            // 3. Apply other filters
+            Object.keys(filter).forEach(key => {
+                if (key !== 'search' && key !== 'community' && key !== '$or') {
+                    // Loose equality for strings/numbers
+                    filtered = filtered.filter(u => u[key] == filter[key]);
+                }
+            });
+
+            // 4. Apply Sort
+            if (options.sort) {
+                const sortField = Object.keys(options.sort)[0];
+                const order = options.sort[sortField] === 1 ? 1 : -1;
+                filtered.sort((a, b) => {
+                    const valA = (a[sortField] || '').toString().toLowerCase();
+                    const valB = (b[sortField] || '').toString().toLowerCase();
+                    if (valA < valB) return -1 * order;
+                    if (valA > valB) return 1 * order;
+                    return 0;
+                });
+            }
+
+            // 5. Apply Pagination
+            const skip = parseInt(options.skip) || 0;
+            const limit = parseInt(options.limit) || 20;
+            return filtered.slice(skip, skip + limit);
+        }
+
+        // MongoDB: Existing logic
         const finalFilter = { ...filter, community: communityId };
 
         if (filter.search) {
@@ -221,7 +264,6 @@ class UserService {
                 { email: { $regex: searchTerm, $options: "i" } },
                 { phone: { $regex: searchTerm, $options: "i" } },
                 { gotra: { $regex: searchTerm, $options: "i" } },
-                // Add other fields as needed
             ];
         }
 
@@ -229,6 +271,30 @@ class UserService {
     }
 
     async countCommunityUsers(communityId, filter = {}) {
+        if (this.userRepo.isDynamoDB()) {
+            const allUsers = await this.userRepo.findByCommunity(communityId, { limit: undefined });
+            let filtered = allUsers;
+
+            if (filter.search) {
+                const term = filter.search.toLowerCase();
+                filtered = filtered.filter(u =>
+                    (u.firstName && u.firstName.toLowerCase().includes(term)) ||
+                    (u.lastName && u.lastName.toLowerCase().includes(term)) ||
+                    (u.email && u.email.toLowerCase().includes(term)) ||
+                    (u.phone && u.phone.includes(term)) ||
+                    (u.gotra && u.gotra && u.gotra.toLowerCase().includes(term))
+                );
+            }
+
+            Object.keys(filter).forEach(key => {
+                if (key !== 'search' && key !== 'community' && key !== '$or') {
+                    filtered = filtered.filter(u => u[key] == filter[key]);
+                }
+            });
+
+            return filtered.length;
+        }
+
         const finalFilter = { ...filter, community: communityId };
         if (filter.search) {
             const searchTerm = filter.search;

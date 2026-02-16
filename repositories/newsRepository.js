@@ -30,12 +30,14 @@ class NewsRepository extends CommunityEntityRepository {
         if (this.isMongoDB()) {
             return this.find({ author: authorId }, options);
         } else {
-            const result = await this.getDb().scan(this.tableName, {
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: 'authorId = :authorId',
-                filterValues: { ':authorId': authorId },
-                limit: options.limit
+                filterValues: { ':authorId': authorId }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 }

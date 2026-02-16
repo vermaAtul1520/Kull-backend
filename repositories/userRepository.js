@@ -126,36 +126,51 @@ class UserRepository extends BaseRepository {
                 populate: options.populate
             });
         } else {
-            let filterExpression = undefined;
-            let filterValues = {};
+            // DynamoDB: Fetch all users for community, then filter/sort/skip/limit in memory
+            let allItems = [];
+            let lastEvaluatedKey = undefined;
 
+            try {
+                do {
+                    const params = {
+                        indexName: 'community-index',
+                        keyCondition: 'communityId = :communityId',
+                        keyValues: { ':communityId': communityId },
+                        exclusiveStartKey: lastEvaluatedKey
+                    };
+
+                    const result = await this.getDb().query(this.tableName, params);
+                    allItems.push(...result.items);
+                    lastEvaluatedKey = result.lastEvaluatedKey;
+                } while (lastEvaluatedKey);
+            } catch (error) {
+                console.error(`Error fetching all community users:`, error);
+                throw error;
+            }
+
+            // 1. Transform
+            let processedItems = this._transformResult(allItems);
+
+            // 2. Apply Filters (In-Memory)
             if (options.status) {
-                filterExpression = 'communityStatus = :status';
-                filterValues[':status'] = options.status;
+                processedItems = processedItems.filter(u => u.communityStatus === options.status);
             }
             if (options.role) {
-                filterExpression = filterExpression
-                    ? `${filterExpression} AND roleInCommunity = :role`
-                    : 'roleInCommunity = :role';
-                filterValues[':role'] = options.role;
+                processedItems = processedItems.filter(u => u.roleInCommunity === options.role);
             }
 
-            const expressionAttributeNames = {};
-            if (options.status) expressionAttributeNames['#status'] = 'communityStatus';
-            if (options.role) expressionAttributeNames['#role'] = 'roleInCommunity';
-
-            const result = await this.getDb().query(this.tableName, {
-                indexName: 'community-index',
-                keyCondition: 'communityId = :communityId',
-                keyValues: { ':communityId': communityId },
-                filterExpression: filterExpression ? filterExpression.replace('communityStatus', '#status').replace('roleInCommunity', '#role') : undefined,
-                filterValues: Object.keys(filterValues).length > 0 ? filterValues : undefined,
-                expressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
-                limit: options.limit,
-                scanForward: false // Newest first
+            // 3. Apply Sort (Default: createdAt desc)
+            processedItems.sort((a, b) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB - dateA;
             });
 
-            return result.items;
+            // 4. Pagination
+            const skip = options.skip || 0;
+            const limit = options.limit || processedItems.length;
+
+            return processedItems.slice(skip, skip + limit);
         }
     }
 
@@ -294,13 +309,15 @@ class UserRepository extends BaseRepository {
                 options
             );
         } else {
-            // DynamoDB: Scan with filter (less efficient)
-            const result = await this.getDb().scan(this.tableName, {
+            // DynamoDB: Scan with filter (less efficient but handles all pages)
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: 'contains(firstName, :query) OR contains(lastName, :query)',
-                filterValues: { ':query': query },
-                limit: options.limit
+                filterValues: { ':query': query }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 }

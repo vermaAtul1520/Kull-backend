@@ -30,12 +30,14 @@ class JobPostRepository extends CommunityEntityRepository {
         if (this.isMongoDB()) {
             return this.find({ postedBy: posterId }, options);
         } else {
-            const result = await this.getDb().scan(this.tableName, {
+            const items = await this._scanAll(this.tableName, {
                 filterExpression: 'postedById = :posterId',
-                filterValues: { ':posterId': posterId },
-                limit: options.limit
+                filterValues: { ':posterId': posterId }
             });
-            return result.items;
+
+            const skip = options.skip || 0;
+            const limit = options.limit || items.length;
+            return items.slice(skip, skip + limit);
         }
     }
 }

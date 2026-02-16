@@ -109,8 +109,8 @@ exports.getPendingUsers = async (req, res) => {
   try {
     const communityId = req.user.community;
 
-    // Check if admin of community
-    if (req.user.roleInCommunity !== 'admin') {
+    // Check if admin of community or superadmin
+    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
       return res.status(403).json({ success: false, message: "Access denied. Community Admin only." });
     }
 
@@ -138,7 +138,7 @@ exports.approveUser = async (req, res) => {
       return res.status(403).json({ success: false, message: "User does not belong to your community" });
     }
 
-    if (req.user.roleInCommunity !== 'admin') {
+    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -170,7 +170,7 @@ exports.rejectUser = async (req, res) => {
       return res.status(403).json({ success: false, message: "User does not belong to your community" });
     }
 
-    if (req.user.roleInCommunity !== 'admin') {
+    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 

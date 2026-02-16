@@ -12,9 +12,9 @@ router.post("/create", communityController.createCommunity);
 router.get(
   "/",
   isAuthenticated,
-  isSuperAdmin, 
+  isSuperAdmin,
   queryParser({
-    allowFilterFields: ["name","_id", "code", "createdBy", "createdAt"],
+    allowFilterFields: ["name", "_id", "code", "createdBy", "createdAt"],
     allowSortFields: ["name", "code", "createdAt"],
     maxLimit: 50,
   }),
@@ -42,8 +42,8 @@ router.delete(
 );
 router.get("/:communityId/users", isAuthenticated, queryParser({
   allowFilterFields: [
-    "firstName", "email", "role","roleInCommunity", "status",
-    "positionInCommunity","cast","cGotNo","gotra","subGotra","gender","communityStatus",
+    "firstName", "email", "role", "roleInCommunity", "status",
+    "positionInCommunity", "cast", "cGotNo", "gotra", "subGotra", "gender", "communityStatus",
     "search"  // Generic search parameter for partial matching
   ],
   allowSortFields: ["firstName", "email", "createdAt"],
@@ -54,7 +54,8 @@ router.get("/:communityId/users", isAuthenticated, queryParser({
     "occupation", "religion", "motherTongue", "fatherName", "pinCode",
     "alternativePhone", "maritalStatus", "profileImage", "plainTextPassword"
   ],
-  maxLimit: 50
+  maxLimit: 50,
+  defaultLimit: 50
 }), communityController.getUsersByCommunityId);
 
 // Admin/SuperAdmin adds a new user to specific community with all details and sends credentials via email
@@ -76,15 +77,15 @@ router.delete("/:communityId/configuration", isAuthenticated, isSuperOrCommunity
 // Bhajans
 router.post("/:communityId/bhajans", isAuthenticated, isSuperOrCommunityAdmin, bhajanController.createBhajan);
 router.get("/:communityId/bhajans", isAuthenticated, queryParser({
-  allowFilterFields: ["title","artist","category"],
-  allowSortFields: ["title","artist","views","createdAt"],
-  allowProjectFields: ["title","artist","category","views","createdAt"],
+  allowFilterFields: ["title", "artist", "category"],
+  allowSortFields: ["title", "artist", "views", "createdAt"],
+  allowProjectFields: ["title", "artist", "category", "views", "createdAt"],
   maxLimit: 50
 }), bhajanController.getBhajansByCommunity);
 router.get("/bhajans/:id", isAuthenticated, bhajanController.getBhajanById);
 router.put("/bhajans/:id", isAuthenticated, bhajanController.updateBhajan);
 router.delete("/bhajans/:id", isAuthenticated, isSuperOrCommunityAdmin, bhajanController.deleteBhajan);
-router.get("/:communityId/users/orgofficers",isAuthenticated,communityController.getOfficerForCommunity);
+router.get("/:communityId/users/orgofficers", isAuthenticated, communityController.getOfficerForCommunity);
 
 module.exports = router;
 
