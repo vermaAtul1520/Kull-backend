@@ -56,7 +56,6 @@ exports.updateOwnProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
       data: updatedUser,
     });
   } catch (err) {
@@ -95,7 +94,6 @@ exports.updateUser = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "User updated successfully",
       data: updatedUser,
     });
   } catch (err) {
