@@ -149,30 +149,39 @@ exports.getCommunityNews = async (req, res, next) => {
       });
     }
 
-    const newsList = await newsService.getNewsByCommunity(communityId);
+    let newsList = [];
+    if (role === 'superadmin' && communityId === 'all') {
+      newsList = await newsService.newsRepo.findRecent({ limit: 50 });
+    } else {
+      newsList = await newsService.getNewsByCommunity(communityId);
+    }
 
-    // Manual Populate
-    const authorIds = newsList.map(n => n.author);
+    const authorIds = [...new Set(newsList.map(n => n.author))].filter(id => id);
     const users = await userService.getManyByIds(authorIds);
     const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
 
-    // Check if community fetch needed
-    // Usually redundant if filtered by communityId, but to match response structure
-    const comm = await communityService.getCommunityById(communityId);
+    const communityIds = [...new Set(newsList.map(n => n.communityId || n.community))].filter(id => id);
+    const communities = await communityService.getManyCommunitiesByIds ? await communityService.getManyCommunitiesByIds(communityIds) : [];
+    const communityMap = communities.reduce((acc, c) => ({ ...acc, [c.id || c._id]: c }), {});
 
-    const populated = newsList.map(n => ({
-      ...n,
-      author: userMap[n.author] ? {
-        _id: userMap[n.author].id || userMap[n.author]._id,
-        firstName: userMap[n.author].firstName,
-        lastName: userMap[n.author].lastName || "",
-        email: userMap[n.author].email
-      } : n.author,
-      community: comm ? {
-        _id: comm.id || comm._id,
-        name: comm.name
-      } : n.community
-    }));
+    const populated = newsList.map(n => {
+      const authorId = n.author;
+      const commId = n.communityId || n.community;
+      return {
+        ...n,
+        _id: n.id || n._id,
+        author: userMap[authorId] ? {
+          _id: userMap[authorId].id || userMap[authorId]._id,
+          firstName: userMap[authorId].firstName,
+          lastName: userMap[authorId].lastName || "",
+          email: userMap[authorId].email
+        } : authorId,
+        community: communityMap[commId] ? {
+          _id: communityMap[commId].id || communityMap[commId]._id,
+          name: communityMap[commId].name
+        } : commId
+      };
+    });
 
     return res.status(200).json({
       success: true,

@@ -84,8 +84,17 @@ Resources:
           # MongoDB URI (Unused in pure DynamoDB mode but added as requested)
           MONGO_URI: "mongodb+srv://parmanandprajapati006:vNr37YTR7pufyxPD@cluster0.3tsblyf.mongodb.net/Kull?retryWrites=true&w=majority&appName=Cluster0"
       Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref KullUploadsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:GetObject
+                - s3:DeleteObject
+                - s3:ListBucket
+              Resource:
+                - !Sub arn:aws:s3:::${KullUploadsBucket}
+                - !Sub arn:aws:s3:::${KullUploadsBucket}/*
         - DynamoDBCrudPolicy:
             TableName: !Sub kull-${Stage}-users
         - DynamoDBCrudPolicy:

@@ -8,6 +8,26 @@ const emailService = require("../services/emailService");
 const userService = getUserService();
 const communityService = getCommunityService();
 
+// Get Own Profile
+exports.getOwnProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await userService.getUserProfile(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+  }
+};
+
 // Update Own Profile
 exports.updateOwnProfile = async (req, res) => {
   try {
@@ -15,13 +35,22 @@ exports.updateOwnProfile = async (req, res) => {
     const updates = req.body;
 
     // Remove sensitive or restricted fields from updates
+    // Especially important to remove primary keys for DynamoDB/MongoDB consistency
     delete updates.password;
     delete updates.role;
     delete updates.communityStatus;
     delete updates.community;
+    delete updates.id;
+    delete updates._id;
+    delete updates.pk;
+    delete updates.sk;
 
-    // Filter null/undefined
-    Object.keys(updates).forEach(key => (updates[key] === null || updates[key] === undefined) && delete updates[key]);
+    // Filter null/undefined/empty string
+    Object.keys(updates).forEach(key => (updates[key] === null || updates[key] === undefined || updates[key] === '') && delete updates[key]);
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: "No valid fields provided for update" });
+    }
 
     const updatedUser = await userService.updateProfile(userId, updates);
 
@@ -114,13 +143,24 @@ exports.getPendingUsers = async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied. Community Admin only." });
     }
 
-    // Fetch users with status 'pending' in community
-    const pendingUsers = await userService.userRepo.find({
-      community: communityId,
-      communityStatus: 'pending'
-    });
+    // Fetch users with status 'pending'
+    let query = { communityStatus: 'pending' };
 
-    res.status(200).json({ success: true, count: pendingUsers.length, data: pendingUsers });
+    // If not superadmin, restrict to their community
+    if (req.user.role !== 'superadmin') {
+      query.community = communityId;
+    }
+
+    const pendingUsers = await userService.userRepo.find(query);
+
+    const sanitizedUsers = pendingUsers.map(user => userService.sanitizeUser(user));
+
+    res.status(200).json({
+      success: true,
+      message: "Pending users fetched successfully",
+      count: sanitizedUsers.length,
+      users: sanitizedUsers
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
@@ -184,14 +224,14 @@ exports.rejectUser = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
 
     // Super admin only? Or self delete?
-    if (req.user.role !== 'superadmin' && req.user.id !== id) {
+    if (req.user.role !== 'superadmin' && req.user.id !== userId) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
-    await userService.deleteUser(id);
+    await userService.deleteUser(userId);
     res.status(200).json({ success: true, message: "User deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Internal server error", error: err.message });
@@ -204,8 +244,14 @@ exports.citySearch = async (req, res) => {
     const { city } = req.query;
     if (!city) return res.status(400).json({ success: false, message: "City is required" });
 
-    // Use regex search on city field
-    const query = { city: { $regex: city, $options: 'i' } };
+    // Use regex search on city, pinCode, or state field
+    const query = {
+      $or: [
+        { city: { $regex: city, $options: 'i' } },
+        { pinCode: { $regex: city, $options: 'i' } },
+        { address: { $regex: city, $options: 'i' } }
+      ]
+    };
     // If we want to restrict to community (optional)
     if (req.user.community) query.community = req.user.community;
 
@@ -232,6 +278,35 @@ exports.familyTreeSearch = async (req, res) => {
 
     res.json({ success: true, count: filtered.length, data: filtered });
   } catch (err) {
+    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+  }
+};
+
+// List All Users (Superadmin only)
+exports.listAllUsers = async (req, res) => {
+  try {
+    const { filter, sort, limit, skip, page } = req.parsedQuery || {};
+
+    // Ensure superadmin
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: "Access denied. Superadmin only." });
+    }
+
+    const users = await userService.getAllUsers({ filter, sort, limit, skip });
+    const total = await userService.userRepo.count(filter);
+
+    const sanitizedUsers = users.map(user => userService.sanitizeUser(user));
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: page || 1,
+      limit: limit || 20,
+      count: sanitizedUsers.length,
+      data: sanitizedUsers
+    });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }
 };

@@ -36,6 +36,9 @@ class MongoDBAdapter {
 
         this.connection = await mongoose.connect(MONGO_URI, connectionOptions);
 
+        // Register all models
+        require('../../models');
+
         console.log('MongoDB connected successfully');
         console.log(`Connection pool: min=${connectionOptions.minPoolSize}, max=${connectionOptions.maxPoolSize}`);
         console.log(`Environment: ${this.isLambda ? 'AWS Lambda' : 'Standard'}`);

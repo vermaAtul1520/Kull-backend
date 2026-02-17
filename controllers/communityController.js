@@ -179,10 +179,13 @@ class CommunityController {
   // Get Gotra
   getGotraSubgotraByCommunityId = async (req, res, next) => {
     try {
-      const { communityId } = req.params; // treating as code
+      const { communityId } = req.params; // treating as code OR id
 
-      // Find community by code
-      const community = await communityService.getCommunityByCode(communityId);
+      // Find community by code OR id
+      let community = await communityService.getCommunityByCode(communityId);
+      if (!community) {
+        community = await communityService.getCommunityById(communityId);
+      }
 
       if (!community) {
         return res.status(404).json({ success: false, message: "Community not found" });

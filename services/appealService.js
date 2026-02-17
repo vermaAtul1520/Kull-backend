@@ -23,6 +23,10 @@ class AppealService {
         return this.appealRepo.findByUser(userId, options);
     }
 
+    async getAllAppeals(options = {}) {
+        return this.appealRepo.find({}, options);
+    }
+
     async getActiveAppeals(communityId) {
         return this.appealRepo.findActive(communityId);
     }

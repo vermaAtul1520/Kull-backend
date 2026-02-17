@@ -120,9 +120,24 @@ class DukaanController {
       if (req.user.isSuperAdmin) {
         // See all? Not efficient.
         // Or filter by community if provided?
+        // Parse filter query param
+        let filterCommunity = null;
+        if (req.query.filter) {
+          try {
+            const parsedFilter = JSON.parse(req.query.filter);
+            if (parsedFilter.community) {
+              filterCommunity = parsedFilter.community;
+            }
+          } catch (e) {
+            console.error("Failed to parse filter query param:", e);
+          }
+        }
+
         const { community } = req.query;
-        if (community) {
-          dukaans = await dukaanService.getDukaansByCommunity(community, { limit });
+        const targetCommunity = community || filterCommunity;
+
+        if (targetCommunity) {
+          dukaans = await dukaanService.getDukaansByCommunity(targetCommunity, { limit });
         } else {
           dukaans = []; // Avoiding full scan
         }

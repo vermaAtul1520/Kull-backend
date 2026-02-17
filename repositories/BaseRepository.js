@@ -77,6 +77,31 @@ class BaseRepository {
     }
 
     /**
+     * Get many entities by their IDs
+     * @param {Array<string>} ids 
+     * @returns {Promise<Array<Object>>}
+     */
+    async getManyByIds(ids) {
+        if (!ids || ids.length === 0) return [];
+
+        if (this.isMongoDB()) {
+            const Model = this.getDb().getModel(this.entityName);
+            const results = await Model.find({ _id: { $in: ids } }).lean();
+            return this._transformResult(results);
+        } else {
+            // DynamoDB: Use scan with IN clause
+            // Note: Limited to 100 per batch by DynamoDB for some operations, 
+            // but for Scan FilterExpression, we just need to avoid reserved words like "id"
+            const result = await this.getDb().scan(this.tableName, {
+                filterExpression: '#idFieldName IN (' + ids.map((_, i) => `:id${i}`).join(',') + ')',
+                filterValues: ids.reduce((acc, id, i) => ({ ...acc, [`:id${i}`]: id }), {}),
+                expressionAttributeNames: { '#idFieldName': 'id' }
+            });
+            return this._transformResult(result.items);
+        }
+    }
+
+    /**
      * Find one entity matching criteria
      * @param {Object} criteria 
      * @param {Object} options 
@@ -168,10 +193,13 @@ class BaseRepository {
             const saved = await doc.save();
             return this._transformResult(saved.toObject());
         } else {
-            // Add ID if not present
-            if (!data.id) {
+            // Add ID if not present or empty
+            if (!data.id || data.id === "") {
                 data.id = this.generateId();
             }
+            // Also ensure _id is removed for DynamoDB logic to avoid PK confusion if passed
+            delete data._id;
+
             const result = await this.getDb().putItem(this.tableName, data);
             return this._transformResult(result);
         }
@@ -385,7 +413,25 @@ class BaseRepository {
      * @private
      */
     _buildFilterExpression(criteria) {
+        if (criteria.$or && Array.isArray(criteria.$or)) {
+            const expressions = criteria.$or.map((cond, i) => {
+                const subKeys = Object.keys(cond);
+                return subKeys.map((k, j) => {
+                    const val = cond[k];
+                    if (val && typeof val === 'object' && val.$regex) {
+                        return `contains(#orField${i}_${j}, :orVal${i}_${j})`;
+                    }
+                    return `#orField${i}_${j} = :orVal${i}_${j}`;
+                }).join(' AND ');
+            });
+            return `(${expressions.join(') OR (')})`;
+        }
+
         const conditions = Object.keys(criteria).map((key, index) => {
+            const value = criteria[key];
+            if (value && typeof value === 'object' && value.$regex) {
+                return `contains(#field${index}, :val${index})`;
+            }
             return `#field${index} = :val${index}`;
         });
         return conditions.join(' AND ');
@@ -397,8 +443,18 @@ class BaseRepository {
      */
     _buildFilterValues(criteria) {
         const values = {};
+        if (criteria.$or && Array.isArray(criteria.$or)) {
+            criteria.$or.forEach((cond, i) => {
+                Object.keys(cond).forEach((k, j) => {
+                    const val = cond[k];
+                    values[`:orVal${i}_${j}`] = (val && typeof val === 'object' && val.$regex) ? val.$regex : val;
+                });
+            });
+            return values;
+        }
+
         Object.values(criteria).forEach((value, index) => {
-            values[`:val${index}`] = value;
+            values[`:val${index}`] = (value && typeof value === 'object' && value.$regex) ? value.$regex : value;
         });
         return values;
     }
@@ -409,6 +465,15 @@ class BaseRepository {
      */
     _buildExpressionNames(criteria) {
         const names = {};
+        if (criteria.$or && Array.isArray(criteria.$or)) {
+            criteria.$or.forEach((cond, i) => {
+                Object.keys(cond).forEach((k, j) => {
+                    names[`#orField${i}_${j}`] = k;
+                });
+            });
+            return names;
+        }
+
         Object.keys(criteria).forEach((key, index) => {
             names[`#field${index}`] = key;
         });

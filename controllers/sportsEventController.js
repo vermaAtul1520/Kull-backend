@@ -55,10 +55,28 @@ class SportsEventController {
             }
 
             let commId = req.user.community;
-            if (req.user.isSuperAdmin && req.query.community) {
-                commId = req.query.community;
-            } else if (req.user.isSuperAdmin) {
-                return res.status(200).json({ success: true, count: 0, data: [] });
+
+            // Handle filter query param (JSON string like ?filter={"community":"..."})
+            let filterCommunity = null;
+            if (req.query.filter) {
+                try {
+                    const parsedFilter = JSON.parse(req.query.filter);
+                    if (parsedFilter.community) {
+                        filterCommunity = parsedFilter.community;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse filter query param:", e);
+                }
+            }
+
+            if (req.user.isSuperAdmin) {
+                if (req.query.community) {
+                    commId = req.query.community;
+                } else if (filterCommunity) {
+                    commId = filterCommunity;
+                } else {
+                    return res.status(200).json({ success: true, count: 0, data: [] });
+                }
             }
 
             if (typeof commId === 'object') commId = commId._id.toString();

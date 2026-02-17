@@ -8,27 +8,20 @@ const jwt = require('jsonwebtoken');
 jest.mock('bcryptjs');
 jest.mock('jsonwebtoken');
 jest.mock('../../../repositories/userRepository', () => ({
-    getUserRepository: jest.fn(() => ({
-        findByEmail: jest.fn(),
-        findByPhone: jest.fn(),
-        findByIdWithPassword: jest.fn(),
-        create: jest.fn(),
-        updateById: jest.fn(),
-    })),
+    getUserRepository: jest.fn(),
 }));
 jest.mock('../../../repositories/communityRepository', () => ({
-    getCommunityRepository: jest.fn(() => ({
-        findByCode: jest.fn(),
-    })),
+    getCommunityRepository: jest.fn(),
 }));
 jest.mock('../../../services/emailService', () => ({
-    sendWelcomeEmail: jest.fn().mockResolvedValue(true),
-    sendEmail: jest.fn().mockResolvedValue(true),
+    sendWelcomeEmail: jest.fn().mockImplementation(() => Promise.resolve(true)),
+    sendEmail: jest.fn().mockImplementation(() => Promise.resolve(true)),
 }));
 
-const { getAuthService } = require('../../../services/authService');
+const { AuthService } = require('../../../services/authService');
 const { getUserRepository } = require('../../../repositories/userRepository');
 const { getCommunityRepository } = require('../../../repositories/communityRepository');
+const emailService = require('../../../services/emailService');
 
 describe('AuthService', () => {
     let authService;
@@ -37,9 +30,26 @@ describe('AuthService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        authService = getAuthService();
-        mockUserRepo = getUserRepository();
-        mockCommunityRepo = getCommunityRepository();
+
+        mockUserRepo = {
+            findByEmail: jest.fn(),
+            findByPhone: jest.fn(),
+            findByIdWithPassword: jest.fn(),
+            create: jest.fn(),
+            updateById: jest.fn(),
+        };
+        getUserRepository.mockReturnValue(mockUserRepo);
+
+        mockCommunityRepo = {
+            findByCode: jest.fn(),
+        };
+        getCommunityRepository.mockReturnValue(mockCommunityRepo);
+
+        // Ensure emailService mocks return promises with .catch method
+        emailService.sendWelcomeEmail.mockImplementation(() => Promise.resolve(true));
+        emailService.sendEmail.mockImplementation(() => Promise.resolve(true));
+
+        authService = new AuthService();
     });
 
     describe('signup', () => {

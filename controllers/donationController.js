@@ -56,29 +56,33 @@ exports.getDonationsByCommunity = async (req, res) => {
       });
     }
 
-    const donations = await donationService.getDonationsByCommunity(communityId);
+    let donations = [];
+    if (role === 'superadmin' && communityId === 'all') {
+      donations = await donationService.donationRepo.findRecent({ limit: 50 });
+    } else {
+      donations = await donationService.getDonationsByCommunity(communityId);
+    }
 
-    // Manual Populate
-    const userIds = donations.map(d => d.createdBy);
+    const userIds = [...new Set(donations.map(d => d.createdBy))].filter(id => id);
     const users = await userService.getManyByIds(userIds);
     const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
 
-    const comIds = donations.map(d => d.communityId);
-    // Reuse community detail if same, or fetch
-    // Usually all are same communityId
-    let communityObj = null;
-    if (comIds.length > 0) {
-      communityObj = await communityService.getCommunityById(communityId);
-    }
+    const communityIds = [...new Set(donations.map(d => d.communityId || d.community))].filter(id => id);
+    const communities = await communityService.getManyCommunitiesByIds ? await communityService.getManyCommunitiesByIds(communityIds) : [];
+    const communityMap = communities.reduce((acc, c) => ({ ...acc, [c.id || c._id]: c }), {});
 
     const populated = donations.map(d => ({
       ...d,
+      _id: d.id || d._id,
       createdBy: userMap[d.createdBy] ? {
         _id: userMap[d.createdBy].id || userMap[d.createdBy]._id,
         firstName: userMap[d.createdBy].firstName,
         lastName: userMap[d.createdBy].lastName
       } : d.createdBy,
-      communityId: communityObj ? { name: communityObj.name, _id: communityObj.id } : d.communityId
+      communityId: communityMap[d.communityId || d.community] ? {
+        _id: communityMap[d.communityId || d.community].id || communityMap[d.communityId || d.community]._id,
+        name: communityMap[d.communityId || d.community].name
+      } : d.communityId
     }));
 
     return res.status(200).json({

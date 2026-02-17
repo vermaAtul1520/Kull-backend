@@ -39,14 +39,17 @@ class KartavyaController {
   getAllKartavyas = async (req, res, next) => {
     try {
       let kartavyas = [];
-      const limit = parseInt(req.query.limit) || 20;
+      const { filter, sort, limit, skip, page } = req.parsedQuery || {};
+      const queryLimit = limit || 20;
+      const querySkip = skip || 0;
 
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
         const { community } = req.query;
         if (community) {
-          kartavyas = await kartavyaService.getKartavyaByCommunity(community, { limit });
+          kartavyas = await kartavyaService.getKartavyaByCommunity(community, { limit: queryLimit, skip: querySkip, filters: filter });
         } else {
-          kartavyas = [];
+          // Fetch across all for superadmin with filters
+          kartavyas = await kartavyaService.kartavyaRepo.find(filter || {}, { limit: queryLimit, skip: querySkip });
         }
       } else {
         const userCommunity = req.user.community;
@@ -54,22 +57,38 @@ class KartavyaController {
           return res.status(403).json({ success: false, message: "Community access required" });
         }
         const userCommId = userCommunity._id || userCommunity.id || userCommunity;
-        kartavyas = await kartavyaService.getKartavyaByCommunity(String(userCommId), { limit });
+        kartavyas = await kartavyaService.getKartavyaByCommunity(String(userCommId), { limit: queryLimit, skip: querySkip, filters: filter });
       }
 
-      // Populate createdBy
-      const userIds = kartavyas.map(k => k.createdBy);
-      const users = await userService.getManyByIds(userIds);
-      const userMap = users.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+      // Populate createdBy and Community
+      const userIds = [...new Set(kartavyas.map(k => String(k.createdBy || '')))].filter(id => id && id.length > 5);
+      const communityIds = [...new Set(kartavyas.map(k => String(k.communityId || k.community || '')))].filter(id => id && id.length > 5);
 
-      const populated = kartavyas.map(k => ({
-        ...k,
-        createdBy: userMap[k.createdBy] ? {
-          _id: userMap[k.createdBy].id || userMap[k.createdBy]._id,
-          firstName: userMap[k.createdBy].firstName,
-          lastName: userMap[k.createdBy].lastName
-        } : k.createdBy
-      }));
+      const [users, communities] = await Promise.all([
+        userService.getManyByIds(userIds),
+        communityService.getManyCommunitiesByIds(communityIds)
+      ]);
+
+      const userMap = users.reduce((acc, u) => ({ ...acc, [String(u.id || u._id)]: u }), {});
+      const communityMap = communities.reduce((acc, c) => ({ ...acc, [String(c.id || c._id)]: c }), {});
+
+      const populated = kartavyas.map(k => {
+        const createdByStr = String(k.createdBy || '');
+        const communityIdStr = String(k.communityId || k.community || '');
+
+        return {
+          ...k,
+          createdBy: userMap[createdByStr] ? {
+            _id: userMap[createdByStr].id || userMap[createdByStr]._id,
+            firstName: userMap[createdByStr].firstName,
+            lastName: userMap[createdByStr].lastName
+          } : k.createdBy,
+          community: communityMap[communityIdStr] ? {
+            _id: communityMap[communityIdStr].id || communityMap[communityIdStr]._id,
+            name: communityMap[communityIdStr].name
+          } : k.community
+        };
+      });
 
       return res.status(200).json({ success: true, count: populated.length, data: populated });
     } catch (err) {
@@ -108,7 +127,14 @@ class KartavyaController {
         }
       }
 
-      const updated = await kartavyaService.updateKartavya(req.params.id, req.body);
+      // Sanitize updates
+      const allowedUpdates = ["title", "description", "category", "filetype", "language", "url", "thumbnailUrl"];
+      const updates = {};
+      allowedUpdates.forEach(field => {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+      });
+
+      const updated = await kartavyaService.updateKartavya(req.params.id, updates);
       res.status(200).json({ success: true, data: updated });
     } catch (err) {
       next(err);

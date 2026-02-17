@@ -28,6 +28,7 @@ const sportsEventRoutes = require("./routes/sportsEventRoutes"); // New sports e
 const occasionRoutes = require("./routes/occasionRoutes");
 const occasionCategoryRoutes = require("./routes/occasionCategoryRoutes");
 const familyRoutes = require("./routes/familyRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
 
 // MongoDB connection (legacy - used when DB_TYPE=mongodb)
 const connectDB = require("./config/database");
@@ -39,13 +40,8 @@ const { initializeDatabase, getDatabaseType } = require("./db");
 const initDb = async () => {
   const dbType = getDatabaseType();
 
-  if (dbType === 'mongodb') {
-    // Use legacy MongoDB connection for backwards compatibility
-    await connectDB();
-  } else {
-    // Use new database abstraction layer
-    await initializeDatabase();
-  }
+  // Always call initializeDatabase to set the abstraction layer adapter
+  await initializeDatabase();
 
   console.log(`Database type: ${dbType}`);
 };
@@ -103,6 +99,7 @@ app.use("/api/sportsEvents", sportsEventRoutes); // New sports event routes
 app.use("/api/occasions", occasionRoutes);
 app.use("/api/occasion-categories", occasionCategoryRoutes);
 app.use("/api/family", familyRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -141,6 +138,7 @@ app.get("/api", (req, res) => {
       occasions: "/api/occasions",
       occasionCategories: "/api/occasion-categories",
       family: "/api/family",
+      upload: "/api/upload",
     },
   });
 });

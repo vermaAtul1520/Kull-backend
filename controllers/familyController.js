@@ -76,10 +76,11 @@ exports.getFamilyTree = async (req, res) => {
         if (!tree[type]) tree[type] = [];
         tree[type].push({
           _id: rel.id || rel._id,
-          user: rel.user,
-          // relatedUser populated
+          id: rel.id || rel._id,
+          user: rel.user || rel.userId,
           relatedUser: {
             _id: rUser.id || rUser._id,
+            id: rUser.id || rUser._id,
             firstName: rUser.firstName,
             lastName: rUser.lastName,
             profileImage: rUser.profileImage,

@@ -14,119 +14,66 @@ const userService = getUserService();
 const populatePosts = async (posts, type = 'list') => {
   if (!posts || posts.length === 0) return [];
 
-  // 1. Populate Authors
-  const authorIds = [...new Set(posts.map(p => p.authorId || p.author?._id || p.author))].filter(id => id);
+  const authorIds = [...new Set(posts.map(p => String(p.authorId || p.author?._id || p.author || '')))].filter(id => id && id.length > 5);
   const authors = await userService.getManyByIds(authorIds);
-  const authorMap = authors.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+  const authorMap = authors.reduce((acc, u) => ({ ...acc, [String(u.id || u._id)]: u }), {});
 
-  // 2. Populate Communities
-  const communityIds = [...new Set(posts.map(p => p.communityId || p.community?._id || p.community))].filter(id => id);
-  // Assuming communityService has getManyByIds or we fetch individually if few. 
-  // CommunityService usually caches or we fetch one by one? 
-  // For now, let's fetch individually or leave as ID if not critical, but UI needs name.
-  // Let's implement a quick map.
-  const communityMap = {};
-  await Promise.all(communityIds.map(async (id) => {
-    const c = await communityService.getCommunityById(id);
-    if (c) communityMap[id] = c;
-  }));
+  const communityIds = [...new Set(posts.map(p => String(p.communityId || p.community?._id || p.community || '')))].filter(id => id && id.length > 5);
+  const communities = await communityService.getManyCommunitiesByIds ? await communityService.getManyCommunitiesByIds(communityIds) : [];
+  const communityMap = communities.reduce((acc, c) => ({ ...acc, [String(c.id || c._id)]: c }), {});
 
-  // 3. Populate Likes & Comments (Heavy operation - optimized for 'list' vs 'single')
-  // distinct fetching for each post
+  // Fallback for individual fetch if getMany not present
+  if (communities.length === 0 && communityIds.length > 0) {
+    for (const id of communityIds) {
+      if (!communityMap[id]) {
+        const c = await communityService.getCommunityById(id);
+        if (c) communityMap[id] = c;
+      }
+    }
+  }
+
   const populatedPosts = await Promise.all(posts.map(async (post) => {
-    const p = post.toObject ? post.toObject() : { ...post }; // Ensure plain object
+    const p = post.toObject ? post.toObject() : { ...post };
+    p._id = p.id || p._id; // Ensure consistent ID
 
-    // Author
-    const authorId = p.authorId || p.author;
-    if (authorMap[authorId]) {
+    const authorIdStr = String(p.authorId || p.author || '');
+    if (authorMap[authorIdStr]) {
       p.author = {
-        _id: authorMap[authorId].id || authorMap[authorId]._id,
-        firstName: authorMap[authorId].firstName,
-        lastName: authorMap[authorId].lastName,
-        roleInCommunity: authorMap[authorId].roleInCommunity,
-        profileImage: authorMap[authorId].profileImage
+        _id: authorMap[authorIdStr].id || authorMap[authorIdStr]._id,
+        firstName: authorMap[authorIdStr].firstName,
+        lastName: authorMap[authorIdStr].lastName,
+        roleInCommunity: authorMap[authorIdStr].roleInCommunity,
+        profileImage: authorMap[authorIdStr].profileImage
       };
     }
 
-    // Community
-    const commId = p.communityId || p.community;
-    if (communityMap[commId]) {
+    const commIdStr = String(p.communityId || p.community || '');
+    if (communityMap[commIdStr]) {
       p.community = {
-        _id: communityMap[commId]._id || communityMap[commId].id,
-        name: communityMap[commId].name
+        _id: communityMap[commIdStr].id || communityMap[commIdStr]._id,
+        name: communityMap[commIdStr].name
       };
     }
 
-    // Likes
-    // Fetch actual likes from repo
     try {
-      // We need to access likeRepo via service or direct? 
-      // postService doesn't expose getLikes? 
-      // We should add it or use internal knowledge. 
-      // Let's use postService.postRepo.likeRepo or similar? 
-      // Better: postService.getLikes(postId) ??
-      // Actually postService.likeRepo is available.
-
-      // NOTE: Ideally Service should expose this.
-      // But for now, we access via the service instance's repo references (if public) or added methods.
-      // Implementation: postService.likeRepo is accessible if we look at service code (this.likeRepo).
-
       const likes = await postService.likeRepo.findByPost(p.id || p._id);
-      const likeUserIds = likes.map(l => l.user || l.userId).filter(id => id);
-      const likeUsers = await userService.getManyByIds(likeUserIds);
-      const likeUserMap = likeUsers.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
-
       p.likes = likes.map(l => ({
         ...l,
-        user: likeUserMap[l.user || l.userId] ? {
-          _id: likeUserMap[l.user || l.userId].id || likeUserMap[l.user || l.userId]._id,
-          firstName: likeUserMap[l.user || l.userId].firstName,
-          lastName: likeUserMap[l.user || l.userId].lastName
-        } : null
-      })).filter(l => l.user); // Filter out invalid users
-
-      // Comments
-      const comments = await postService.commentRepo.findByPost(p.id || p._id, { sort: { createdAt: -1 } });
-      const commentUserIds = comments.map(c => c.user || c.userId || c.author).filter(id => id);
-      const commentUsers = await userService.getManyByIds(commentUserIds);
-      const commentUserMap = commentUsers.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
-
-      // Structure comments (threading if needed)
-      const populatedComments = comments.map(c => ({
-        ...c,
-        author: commentUserMap[c.user || c.userId || c.author] ? {
-          _id: commentUserMap[c.user || c.userId || c.author].id || commentUserMap[c.user || c.userId || c.author]._id,
-          firstName: commentUserMap[c.user || c.userId || c.author].firstName,
-          lastName: commentUserMap[c.user || c.userId || c.author].lastName
-        } : null
-      })).filter(c => c.author);
-
-      // Handle replies logic (simple nesting)
-      const topLevel = [];
-      const repliesMap = {};
-      populatedComments.forEach(c => {
-        if (c.parentComment) {
-          if (!repliesMap[c.parentComment]) repliesMap[c.parentComment] = [];
-          repliesMap[c.parentComment].push(c);
-        } else {
-          topLevel.push(c);
-        }
-      });
-
-      p.comments = topLevel.map(c => ({
-        ...c,
-        replies: repliesMap[c._id || c.id] || [],
-        replyCount: (repliesMap[c._id || c.id] || []).length
+        _id: l.id || l._id,
+        user: l.userId || l.user
       }));
 
-      // Debug counts
-      p.debug = {
-        actualLikeCount: likes.length,
-        actualCommentCount: comments.length
-      };
+      const comments = await postService.commentRepo.findByPost(p.id || p._id, { sort: { createdAt: -1 } });
+      p.comments = comments.map(c => ({
+        ...c,
+        _id: c.id || c._id,
+        author: c.author || c.userId || c.user
+      }));
 
+      p.likeCount = likes.length;
+      p.commentCount = comments.length;
     } catch (e) {
-      console.error("Error generating population for post:", p._id, e);
+      console.error("Error populating post sub-items:", e.message);
     }
 
     return p;
@@ -208,7 +155,12 @@ exports.getPostsByCommunity = async (req, res) => {
     }
 
     // Fetch posts
-    const posts = await postService.getPostsByCommunity(communityId);
+    let posts = [];
+    if (req.user.role === 'superadmin' && communityId === 'all') {
+      posts = await postService.postRepo.findRecent({ limit: 50 });
+    } else {
+      posts = await postService.getPostsByCommunity(communityId);
+    }
 
     // Sync logic removed/deprecated as we now rely on query-time population
 

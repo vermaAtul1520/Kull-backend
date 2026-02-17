@@ -50,6 +50,10 @@ class UserService {
         delete updates.password;
         delete updates.role;
         delete updates.communityStatus;
+        delete updates.id;
+        delete updates._id;
+        delete updates.pk;
+        delete updates.sk;
 
         return this.userRepo.updateById(userId, updates);
     }
@@ -117,13 +121,13 @@ class UserService {
             criteria.community = communityId;
         }
 
-        // For MongoDB, use regex
         if (query) {
             criteria.$or = [
                 { firstName: { $regex: query, $options: 'i' } },
                 { lastName: { $regex: query, $options: 'i' } },
                 { email: { $regex: query, $options: 'i' } },
                 { phone: { $regex: query, $options: 'i' } },
+                { gotra: { $regex: query, $options: 'i' } },
             ];
         }
 
@@ -196,9 +200,14 @@ class UserService {
      * Get officers for community
      */
     async getOfficers(communityId) {
+        if (this.userRepo.isDynamoDB()) {
+            const allUsers = await this.userRepo.findByCommunity(communityId, { limit: undefined });
+            return allUsers.filter(u => u.positionInCommunity && u.positionInCommunity.trim() !== '');
+        }
+
         return this.userRepo.find({
             community: communityId,
-            positionInCommunity: 'officer' // Exact match
+            positionInCommunity: { $ne: null, $exists: true }
         });
     }
 
@@ -305,6 +314,25 @@ class UserService {
             ];
         }
         return this.userRepo.count(finalFilter);
+    }
+
+    /**
+     * Sanitize user object (remove sensitive fields)
+     * @param {Object} user 
+     * @returns {Object}
+     */
+    sanitizeUser(user) {
+        if (!user) return null;
+        // Handle mongoose document
+        const sanitized = user.toObject ? user.toObject() : { ...user };
+
+        // Remove sensitive fields
+        delete sanitized.password;
+        delete sanitized.plainTextPassword;
+        delete sanitized.sk;
+        delete sanitized.pk;
+
+        return sanitized;
     }
 }
 

@@ -1,12 +1,9 @@
-// repositories/postRepository.js - Post Repository
-// Handles Post CRUD operations with community-based partitioning
-
-const { BaseRepository } = require('./BaseRepository');
+const { CommunityEntityRepository } = require('./CommunityEntityRepository');
 const { generateSortKey, parseSortKey } = require('../db/schemas/dynamodb-tables');
 
-class PostRepository extends BaseRepository {
+class PostRepository extends CommunityEntityRepository {
     constructor() {
-        super('Post', 'posts');
+        super('Post', 'posts', 'communityId');
     }
 
     /**

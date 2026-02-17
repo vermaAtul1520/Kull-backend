@@ -107,13 +107,26 @@ class CommunityEntityRepository extends BaseRepository {
             if (options.filters && Object.keys(options.filters).length > 0) {
                 processedItems = processedItems.filter(item => {
                     return Object.entries(options.filters).every(([key, value]) => {
-                        // Handle potential Mongo operators if needed, but for now simple equality
-                        // If value is regex
-                        if (value instanceof RegExp) {
-                            return value.test(item[key]);
+                        // Handle legacy 'category' vs new 'categoryId'
+                        let itemValue = item[key];
+                        if (key === 'categoryId' && itemValue === undefined) itemValue = item.category;
+                        if (key === 'category' && itemValue === undefined) itemValue = item.categoryId;
+
+                        if (itemValue === undefined || itemValue === null) return false;
+
+                        // Support regex object from controller { $regex: '...', $options: 'i' }
+                        if (value && typeof value === 'object' && value.$regex) {
+                            const regex = new RegExp(value.$regex, value.$options || 'i');
+                            return regex.test(itemValue.toString());
                         }
+
+                        // If value is direct regex instance
+                        if (value instanceof RegExp) {
+                            return value.test(itemValue.toString());
+                        }
+
                         // Simple equality (loose for string/number match)
-                        return item[key] == value;
+                        return itemValue.toString().toLowerCase().includes(value.toString().toLowerCase()) || itemValue == value;
                     });
                 });
             }
@@ -188,6 +201,13 @@ class CommunityEntityRepository extends BaseRepository {
                 createdBy,
                 createdAt
             };
+
+            // Ensure both category and categoryId are present if either is provided (for consistency)
+            if (data.category || data.categoryId) {
+                const catVal = data.category || data.categoryId;
+                item.category = catVal;
+                item.categoryId = catVal;
+            }
 
             // Remove MongoDB-style fields
             delete item.community;

@@ -3,9 +3,11 @@
 
 const { getOccasionService } = require("../services/occasionService");
 const { getCommunityService } = require("../services/communityService");
+const { getUserService } = require("../services/userService");
 
 const occasionService = getOccasionService();
 const communityService = getCommunityService();
+const userService = getUserService();
 
 class OccasionController {
 
@@ -83,28 +85,7 @@ class OccasionController {
   getAllOccasions = async (req, res, next) => {
     try {
       // Filter based on user role and community
-      let filter = {};
       let communityId = null;
-
-      if (!req.user.isSuperAdmin) {
-        // Community admin and normal users see only their community's occasions
-        const userCommunity = req.user.community;
-        communityId = userCommunity ? (userCommunity._id || userCommunity.id || userCommunity) : null;
-
-        if (!communityId) {
-          return res.status(400).json({ success: false, message: "Community information missing for user" });
-        }
-        communityId = String(communityId);
-      } else {
-        // Super admin can see all, or filtered by query
-        if (req.query.community) communityId = req.query.community;
-      }
-
-      // Access service
-      let docs = [];
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      const skip = (page - 1) * limit;
 
       // Extract filters
       const {
@@ -123,43 +104,136 @@ class OccasionController {
       if (gender && gender !== 'undefined') filters.gender = gender;
       if (req.query.isFeatured !== undefined) filters.isFeatured = req.query.isFeatured === 'true';
 
+      let docs = [];
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
       let total = 0;
-      if (communityId) {
+
+      if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
+        const { community } = req.query;
+        if (community) {
+          // Super admin querying a specific community
+          communityId = community;
+          docs = await occasionService.getOccasionsByCommunity(communityId, { limit, skip, filters });
+          total = await occasionService.occasionRepo.countByCommunity(communityId, filters);
+        } else {
+          // Super admin querying across all communities
+          docs = await occasionService.occasionRepo.find(filters, { limit, skip });
+          total = await occasionService.occasionRepo.count(filters);
+        }
+      } else {
+        // Community admin or regular user
+        const userCommunity = req.user.community;
+        if (!userCommunity) {
+          return res.status(403).json({ success: false, message: "Community access required" });
+        }
+        communityId = userCommunity._id || userCommunity.id || userCommunity;
+        communityId = String(communityId); // Ensure it's a string for comparison/service calls
+
         docs = await occasionService.getOccasionsByCommunity(communityId, { limit, skip, filters });
         total = await occasionService.occasionRepo.countByCommunity(communityId, filters);
-      } else if (req.user.isSuperAdmin) {
-        // Fetch all (scan) - limited to prevent massive payload
-        // docs = await occasionService.occasionRepo.find({}, { limit: req.query.limit });
-        // For now, return empty if no community to avoid overload unless explicitly requested, 
-        // OR implement findAll in service if needed. user didn't ask for findAll.
-        // Let's return empty to be safe or maybe a limited set?
-        // Returning empty array is safer than scanning everything.
-        docs = [];
-        total = 0;
       }
 
       // Manual populate
       // This is N+1 but necessary without JOINs. 
       // Optimized: Fetch all categories and contents in bulk if possible, or just N+1 for now.
+
+      // 1. Collect all community and user IDs for batch population
+      const communityIds = [...new Set(docs.map(doc => String(doc.communityId || doc.community || '')))].filter(id => id && id.length > 5);
+      const userIds = [...new Set(docs.map(doc => String(doc.createdBy || '')))].filter(id => id && id.length > 5);
+
+      const [communities, users] = await Promise.all([
+        communityService.getManyCommunitiesByIds(communityIds),
+        userService.getManyByIds(userIds)
+      ]);
+
+      const communityMap = communities.reduce((acc, c) => ({ ...acc, [String(c.id || c._id)]: c }), {});
+      const userMap = users.reduce((acc, u) => ({ ...acc, [String(u.id || u._id)]: u }), {});
+
       const populatedDocs = await Promise.all(docs.map(async (doc) => {
         const d = doc.toObject ? doc.toObject() : { ...doc };
 
-        // Category - handle both string ID and already populated object
-        let catId = d.categoryId || d.category;
-        if (catId && typeof catId === 'object') {
-          catId = catId.id || catId._id || catId;
+        // 1. Identify Category ID
+        // It might be in categoryId or category field (sometimes as a string, sometimes as an object/array)
+        let catId = d.categoryId;
+        if (!catId || typeof catId !== 'string') {
+          if (typeof d.category === 'string') {
+            catId = d.category;
+          } else if (d.category && typeof d.category === 'object') {
+            catId = d.category.id || d.category._id || d.category.categoryId;
+            // Handle if category is an array (legacy migration anomaly)
+            if (!catId && Array.isArray(d.category) && d.category.length > 0) {
+              catId = d.category[0].id || d.category[0];
+            }
+          }
         }
 
-        if (catId && typeof catId === 'string') {
-          const cat = await occasionService.occasionCategoryRepo.findById(catId);
-          if (cat) d.category = cat;
+        // 2. Populate Category
+        if (catId && typeof catId === 'string' && catId.length > 5) {
+          try {
+            const cat = await occasionService.occasionCategoryRepo.findById(catId);
+            if (cat) {
+              d.category = cat;
+              d.categoryId = catId;
+            }
+          } catch (e) {
+            console.error(`Error populating category ${catId}:`, e.message);
+          }
         }
 
-        // Contents
+        // 3. Populate Community
+        const commId = String(d.communityId || d.community || '');
+        if (communityMap[commId]) {
+          d.community = {
+            _id: communityMap[commId].id || communityMap[commId]._id,
+            name: communityMap[commId].name
+          };
+        }
+
+        // 4. Populate createdBy
+        const creatorIdStr = String(d.createdBy || '');
+        if (userMap[creatorIdStr]) {
+          d.createdBy = {
+            _id: userMap[creatorIdStr].id || userMap[creatorIdStr]._id,
+            firstName: userMap[creatorIdStr].firstName,
+            lastName: userMap[creatorIdStr].lastName
+          };
+        }
+
+        // 5. Populate Contents
         const occasionId = d.id || d._id;
         if (occasionId) {
-          const contents = await occasionService.getContentsByOccasion(occasionId);
-          d.contents = contents || [];
+          try {
+            // Priority 1: Fetch from separate table (the correct way)
+            let contents = await occasionService.getContentsByOccasion(occasionId);
+
+            // Priority 2: Rescue if they were mistakenly stored in category property (migration anomaly seen in UI)
+            if ((!contents || contents.length === 0) && d.category && typeof d.category === 'object') {
+              const entries = Object.entries(d.category);
+              const foundContents = entries
+                .filter(([key, val]) => !isNaN(key) && val && typeof val === 'object' && val.url)
+                .map(([key, val]) => val);
+
+              if (foundContents.length > 0) {
+                contents = foundContents;
+                // Cleanup contaminated category object
+                foundContents.forEach((_, i) => delete d.category[i]);
+              }
+            }
+
+            // Priority 3: Fallback if already an array of objects in the doc
+            if ((!contents || contents.length === 0) && Array.isArray(d.contents) && d.contents.length > 0) {
+              if (typeof d.contents[0] === 'object') {
+                contents = d.contents;
+              }
+            }
+
+            d.contents = contents || [];
+          } catch (e) {
+            console.error(`Error fetching contents for occasion ${occasionId}:`, e.message);
+            d.contents = [];
+          }
         } else {
           d.contents = [];
         }

@@ -42,7 +42,6 @@ class CommunityConfigRepository extends BaseRepository {
                     meetings: { visible: true, label: "Meetings", labelHindi: "बैठकें" },
                     appeal: { visible: true, label: "Appeal", labelHindi: "अपील" },
                     vote: { visible: true, label: "Vote", labelHindi: "मतदान" },
-                    family: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" },
                     familyTree: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" }
                 };
             }
@@ -56,6 +55,20 @@ class CommunityConfigRepository extends BaseRepository {
             const result = await this.getDb().putItem(this.tableName, data);
             return this._transformResult(result);
         }
+    }
+
+    /**
+     * Inner helper to merge drorOption fields
+     */
+    _prepareUpdateData(existing, updates) {
+        const merged = { ...updates };
+        if (updates.drorOption && existing && existing.drorOption) {
+            merged.drorOption = {
+                ...existing.drorOption,
+                ...updates.drorOption
+            };
+        }
+        return merged;
     }
 
     /**
@@ -89,12 +102,30 @@ class CommunityConfigRepository extends BaseRepository {
         } else {
             const existing = await this.findByCommunityId(communityId);
             if (existing) {
-                return this.getDb().updateItem(this.tableName, { communityId }, configData);
+                const mergedData = this._prepareUpdateData(existing, configData);
+                return this.getDb().updateItem(this.tableName, { communityId }, mergedData);
             } else {
-                return this.getDb().putItem(this.tableName, {
-                    communityId,
-                    ...configData
-                });
+                // If creating new, ensure we have defaults
+                const data = { communityId, ...configData };
+                if (!data.drorOption) {
+                    data.drorOption = {
+                        occasions: { visible: true, label: "Occasions", labelHindi: "अवसर" },
+                        kartavya: { visible: true, label: "Kartavya", labelHindi: "कर्तव्य" },
+                        bhajan: { visible: true, label: "Bhajan", labelHindi: "भजन" },
+                        games: { visible: true, label: "Games", labelHindi: "खेल" },
+                        citySearch: { visible: true, label: "City Search", labelHindi: "शहर खोज" },
+                        organizationOfficer: { visible: true, label: "Organization Officer", labelHindi: "संगठन अधिकारी" },
+                        education: { visible: true, label: "Education", labelHindi: "शिक्षा" },
+                        employment: { visible: true, label: "Employment", labelHindi: "रोजगार" },
+                        sports: { visible: true, label: "Sports", labelHindi: "खेल-कूद" },
+                        dukan: { visible: true, label: "Dukan", labelHindi: "दुकान" },
+                        meetings: { visible: true, label: "Meetings", labelHindi: "बैठकें" },
+                        appeal: { visible: true, label: "Appeal", labelHindi: "अपील" },
+                        vote: { visible: true, label: "Vote", labelHindi: "मतदान" },
+                        familyTree: { visible: true, label: "Family Tree", labelHindi: "वंश वृक्ष" }
+                    };
+                }
+                return this.getDb().putItem(this.tableName, data);
             }
         }
     }
@@ -109,7 +140,9 @@ class CommunityConfigRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return this.updateOne({ community: communityId }, updates);
         } else {
-            return this.getDb().updateItem(this.tableName, { communityId }, updates);
+            const existing = await this.findByCommunityId(communityId);
+            const mergedUpdates = this._prepareUpdateData(existing, updates);
+            return this.getDb().updateItem(this.tableName, { communityId }, mergedUpdates);
         }
     }
 
@@ -154,6 +187,43 @@ class CommunityConfigRepository extends BaseRepository {
         } else {
             return this.getDb().deleteItem(this.tableName, { communityId });
         }
+    }
+
+    /**
+     * Map communityId to id and enforce drawer order for frontend consistency
+     */
+    _transformResult(result) {
+        if (!result) return null;
+        if (Array.isArray(result)) {
+            return result.map(item => this._transformResult(item));
+        }
+
+        const item = { ...result };
+
+        // Enforce drawer order
+        if (item.drorOption) {
+            const ORDERED_KEYS = [
+                'occasions', 'kartavya', 'bhajan', 'games', 'citySearch',
+                'organizationOfficer', 'education', 'employment', 'sports',
+                'dukan', 'meetings', 'appeal', 'vote', 'familyTree'
+            ];
+            const reordered = {};
+            ORDERED_KEYS.forEach(key => {
+                if (item.drorOption[key]) {
+                    reordered[key] = item.drorOption[key];
+                }
+            });
+            // Append any unknown keys at the end
+            Object.keys(item.drorOption).forEach(key => {
+                if (!reordered[key]) reordered[key] = item.drorOption[key];
+            });
+            item.drorOption = reordered;
+        }
+
+        if (item.id === undefined) {
+            item.id = item.communityId;
+        }
+        return item;
     }
 }
 

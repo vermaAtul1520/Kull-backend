@@ -186,11 +186,12 @@ class OccasionRepository extends CommunityEntityRepository {
                 sk,
                 communityId,
                 categoryId,
+                category: categoryId, // Add category for legacy support
                 createdAt
             };
 
             delete item.community;
-            delete item.category;
+            // delete item.category; // Don't delete, keep it for legacy support
 
             return this.getDb().putItem(this.tableName, item);
         }

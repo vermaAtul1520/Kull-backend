@@ -47,9 +47,24 @@ class EducationResourceController {
       const limit = parseInt(req.query.limit) || 20;
 
       if (req.user.isSuperAdmin) {
+        // Parse filter query param
+        let filterCommunity = null;
+        if (req.query.filter) {
+          try {
+            const parsedFilter = JSON.parse(req.query.filter);
+            if (parsedFilter.community) {
+              filterCommunity = parsedFilter.community;
+            }
+          } catch (e) {
+            console.error("Failed to parse filter query param:", e);
+          }
+        }
+
         const { community } = req.query;
-        if (community) {
-          resources = await educationService.getResourcesByCommunity(community, { limit });
+        const targetCommunity = community || filterCommunity;
+
+        if (targetCommunity) {
+          resources = await educationService.getResourcesByCommunity(targetCommunity, { limit });
         } else {
           resources = [];
         }

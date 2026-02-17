@@ -41,7 +41,8 @@ class UserRepository extends BaseRepository {
                 query = query.populate(options.populate);
             }
 
-            return query.lean();
+            const result = await query.lean();
+            return this._transformResult(result);
         } else {
             const result = await this.getDb().query(this.tableName, {
                 indexName: 'email-index',
@@ -71,7 +72,8 @@ class UserRepository extends BaseRepository {
                 query = query.populate(options.populate);
             }
 
-            return query.lean();
+            const result = await query.lean();
+            return this._transformResult(result);
         } else {
             const result = await this.getDb().query(this.tableName, {
                 indexName: 'phone-index',

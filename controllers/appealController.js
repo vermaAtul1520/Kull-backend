@@ -80,12 +80,8 @@ class AppealController {
         if (community) {
           appeals = await appealService.getAppealsByCommunity(community, { limit, skip });
         } else {
-          // Fallback: This is expensive in DynamoDB (scan all tables?). 
-          // For now return empty or simple scan if implemented (not implemented in service).
-          // Returning empty with warning in logs?
-          // Or just return user's own if not specified?
-          // Assume superadmin provides community filter usually.
-          appeals = [];
+          // Superadmin - fetch from all communities
+          appeals = await appealService.getAllAppeals({ limit, skip });
         }
       }
 

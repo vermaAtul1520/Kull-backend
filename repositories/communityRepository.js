@@ -2,6 +2,7 @@
 // Handles all Community CRUD operations for both MongoDB and DynamoDB
 
 const { BaseRepository } = require('./BaseRepository');
+const { getCommunityConfigRepository } = require('./communityConfigRepository');
 
 class CommunityRepository extends BaseRepository {
     constructor() {
@@ -124,13 +125,15 @@ class CommunityRepository extends BaseRepository {
                 populate: 'communityConfiguration'
             });
         } else {
-            const community = await this.findById(communityId);
+            // Ensure ID is a string for DynamoDB key
+            const cleanId = typeof communityId === 'object' ? (communityId._id || communityId.id).toString() : String(communityId);
+
+            const community = await this.findById(cleanId);
             if (!community) return null;
 
-            // Fetch configuration separately
-            const config = await this.getDb().getItem('community-config', {
-                communityId: communityId
-            });
+            // Fetch configuration via the specialized repository
+            const configRepo = getCommunityConfigRepository();
+            const config = await configRepo.findByCommunityId(cleanId);
 
             return {
                 ...community,

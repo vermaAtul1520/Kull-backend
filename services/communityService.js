@@ -102,6 +102,14 @@ class CommunityService {
 
         return { totalMembers, pendingMembers, approvedMembers };
     }
+
+    /**
+     * Get multiple communities by IDs
+     */
+    async getManyCommunitiesByIds(ids) {
+        if (!ids || ids.length === 0) return [];
+        return this.communityRepo.getManyByIds(ids);
+    }
 }
 
 let communityServiceInstance = null;

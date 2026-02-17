@@ -45,9 +45,24 @@ class JobPostController {
       const limit = parseInt(req.query.limit) || 20;
 
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
+        // Parse filter query param
+        let filterCommunity = null;
+        if (req.query.filter) {
+          try {
+            const parsedFilter = JSON.parse(req.query.filter);
+            if (parsedFilter.community) {
+              filterCommunity = parsedFilter.community;
+            }
+          } catch (e) {
+            console.error("Failed to parse filter query param:", e);
+          }
+        }
+
         const { community } = req.query;
-        if (community) {
-          jobPosts = await jobPostService.getJobPostsByCommunity(community, { limit });
+        const targetCommunity = community || filterCommunity;
+
+        if (targetCommunity) {
+          jobPosts = await jobPostService.getJobPostsByCommunity(targetCommunity, { limit });
         } else {
           jobPosts = [];
         }
