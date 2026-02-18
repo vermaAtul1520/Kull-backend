@@ -90,7 +90,7 @@ exports.updateUser = async (req, res) => {
     // Remove password if present (should use specific endpoint for password reset if needed)
     delete updates.password;
 
-    const updatedUser = await userService.updateProfile(userId, updates);
+    const updatedUser = await userService.updateUser(userId, updates);
 
     res.status(200).json({
       success: true,
@@ -105,7 +105,18 @@ exports.updateUser = async (req, res) => {
 exports.assignCommunityToUser = async (req, res) => {
   try {
     const { communityId } = req.body;
-    const userId = req.user.id;
+    let userId = req.params.userId; // Target user from URL
+
+    // If no param, fallback to self (though route should have param)
+    if (!userId) userId = req.user.id;
+
+    // Authorization
+    if (userId !== req.user.id) {
+      // Admin check
+      if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
 
     if (!communityId) {
       return res.status(400).json({ success: false, message: "Community ID is required" });
@@ -117,7 +128,7 @@ exports.assignCommunityToUser = async (req, res) => {
     }
 
     // Update user
-    const updatedUser = await userService.updateProfile(userId, {
+    const updatedUser = await userService.updateUser(userId, {
       community: communityId,
       communityStatus: "pending", // Reset to pending on change
     });
@@ -239,18 +250,42 @@ exports.deleteUser = async (req, res) => {
 
 exports.citySearch = async (req, res) => {
   try {
-    const { city } = req.query;
-    if (!city) return res.status(400).json({ success: false, message: "City is required" });
+    const { city, area, pincode, search } = req.query;
 
-    // Use regex search on city, pinCode, or state field
-    const query = {
-      $or: [
-        { city: { $regex: city, $options: 'i' } },
-        { pinCode: { $regex: city, $options: 'i' } },
-        { address: { $regex: city, $options: 'i' } }
-      ]
-    };
-    // If we want to restrict to community (optional)
+    if (!city && !area && !pincode && !search) {
+      return res.status(400).json({ success: false, message: "At least one search parameter (city, area, pincode, search) is required" });
+    }
+
+    const query = {};
+
+    // General search (mimics old behavior or generic search box)
+    if (search) {
+      query.$or = [
+        { city: { $regex: search, $options: 'i' } },
+        { pinCode: { $regex: search, $options: 'i' } },
+        { address: { $regex: search, $options: 'i' } }
+      ];
+    } else {
+      // Specific fields search (can be combined)
+      if (city) {
+        // Effectively searches city or address string for city name
+        query.$or = [
+          { city: { $regex: city, $options: 'i' } },
+          { address: { $regex: city, $options: 'i' } }
+        ];
+      }
+
+      if (area) {
+        query.address = { $regex: area, $options: 'i' };
+      }
+
+      if (pincode) {
+        // Use regex for pinCode to support partial matches or string persistence
+        query.pinCode = { $regex: pincode, $options: 'i' };
+      }
+    }
+
+    // Community filter (critical security filter)
     if (req.user.community) query.community = req.user.community;
 
     const users = await userService.userRepo.find(query);

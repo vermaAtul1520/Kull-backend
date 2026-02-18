@@ -58,6 +58,13 @@ class MeetingController {
 
             meetings = await meetingService.getMeetingsByCommunity(commId, { limit });
 
+            // Convert and map attachment
+            meetings = meetings.map(m => {
+                const obj = m.toObject ? m.toObject() : m;
+                if (obj.url && !obj.attachment) obj.attachment = obj.url;
+                return obj;
+            });
+
             // Populate
             await this.populateMeetings(meetings);
 
@@ -209,11 +216,19 @@ class MeetingController {
             if (!commId) return res.status(200).json({ success: true, data: [] });
 
             const meetings = await meetingService.getUpcomingMeetings(commId);
+
+            // Convert and map attachment
+            const plainMeetings = meetings.map(m => {
+                const obj = m.toObject ? m.toObject() : m;
+                if (obj.url && !obj.attachment) obj.attachment = obj.url;
+                return obj;
+            });
+
             // Populate
-            await this.populateMeetings(meetings);
+            await this.populateMeetings(plainMeetings);
 
             // Limit
-            const limited = meetings.slice(0, parseInt(limit));
+            const limited = plainMeetings.slice(0, parseInt(limit));
 
             res.status(200).json({
                 success: true,

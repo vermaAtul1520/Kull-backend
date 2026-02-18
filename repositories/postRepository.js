@@ -3,7 +3,7 @@ const { generateSortKey, parseSortKey } = require('../db/schemas/dynamodb-tables
 
 class PostRepository extends CommunityEntityRepository {
     constructor() {
-        super('Post', 'posts', 'communityId');
+        super('Post', 'posts', 'community');
     }
 
     /**

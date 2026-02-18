@@ -4,7 +4,7 @@ const { CommunityEntityRepository } = require('./CommunityEntityRepository');
 
 class KartavyaRepository extends CommunityEntityRepository {
     constructor() {
-        super('Kartavya', 'kartavya', 'communityId');
+        super('Kartavya', 'kartavya', 'community');
     }
 }
 

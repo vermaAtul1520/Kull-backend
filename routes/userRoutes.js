@@ -20,6 +20,8 @@ router.get(
 );
 
 router.get("/pending", isAuthenticated, userController.getPendingUsers);
+router.put("/approve", isAuthenticated, userController.approveUser);
+router.put("/reject", isAuthenticated, userController.rejectUser);
 
 router.get("/city-search", isAuthenticated, userController.citySearch);
 

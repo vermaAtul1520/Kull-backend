@@ -36,7 +36,13 @@ const populatePosts = async (posts, type = 'list') => {
     const p = post.toObject ? post.toObject() : { ...post };
     p._id = p.id || p._id; // Ensure consistent ID
 
-    const authorIdStr = String(p.authorId || p.author || '');
+    // Fix: Handle populated author object to extract ID correctly
+    let authorIdVal = p.authorId || p.author;
+    if (authorIdVal && typeof authorIdVal === 'object') {
+      authorIdVal = authorIdVal._id || authorIdVal.id;
+    }
+    const authorIdStr = String(authorIdVal || '');
+
     if (authorMap[authorIdStr]) {
       p.author = {
         _id: authorMap[authorIdStr].id || authorMap[authorIdStr]._id,

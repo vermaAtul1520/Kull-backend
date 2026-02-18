@@ -1,4 +1,4 @@
-const { BaseRepository } = require('../../repositories/BaseRepository');
+const { BaseRepository } = require('../../../repositories/BaseRepository');
 
 describe('BaseRepository DynamoDB Filter Expression Builder', () => {
     let repo;

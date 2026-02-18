@@ -8,7 +8,11 @@ class MeetingService {
     }
 
     async createMeeting(meetingData, communityId, createdBy) {
-        return this.meetingRepo.create({ ...meetingData, communityId, createdBy });
+        const data = { ...meetingData };
+        if (data.attachment && !data.url) {
+            data.url = data.attachment;
+        }
+        return this.meetingRepo.create({ ...data, community: communityId, createdBy });
     }
 
     async getMeetingById(meetingId) {

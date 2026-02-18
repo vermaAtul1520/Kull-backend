@@ -59,6 +59,18 @@ class UserService {
     }
 
     /**
+     * Update user by admin (allows communityStatus etc)
+     */
+    async updateUser(userId, updates) {
+        delete updates.id;
+        delete updates._id;
+        delete updates.pk;
+        delete updates.sk;
+
+        return this.userRepo.updateById(userId, updates);
+    }
+
+    /**
      * Change user password
      */
     async changePassword(userId, currentPassword, newPassword) {
@@ -202,12 +214,16 @@ class UserService {
     async getOfficers(communityId) {
         if (this.userRepo.isDynamoDB()) {
             const allUsers = await this.userRepo.findByCommunity(communityId, { limit: undefined });
-            return allUsers.filter(u => u.positionInCommunity && u.positionInCommunity.trim() !== '');
+            return allUsers.filter(u =>
+                u.positionInCommunity &&
+                u.positionInCommunity.trim() !== '' &&
+                u.positionInCommunity.toLowerCase() !== 'member'
+            );
         }
 
         return this.userRepo.find({
             community: communityId,
-            positionInCommunity: { $ne: null, $exists: true }
+            positionInCommunity: { $ne: null, $exists: true, $regex: /^(?!member$)/i }
         });
     }
 

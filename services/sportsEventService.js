@@ -8,7 +8,11 @@ class SportsEventService {
     }
 
     async createSportsEvent(eventData, communityId, createdBy) {
-        return this.sportsEventRepo.create({ ...eventData, communityId, createdBy });
+        const data = { ...eventData };
+        if (data.attachment && !data.url) {
+            data.url = data.attachment;
+        }
+        return this.sportsEventRepo.create({ ...data, community: communityId, createdBy });
     }
 
     async getSportsEventById(eventId) {

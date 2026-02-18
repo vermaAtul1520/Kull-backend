@@ -83,6 +83,13 @@ class SportsEventController {
 
             events = await sportsEventService.getSportsEventsByCommunity(commId, { limit });
 
+            // Convert to objects and add attachment alias for UI
+            events = events.map(e => {
+                const obj = e.toObject ? e.toObject() : e;
+                if (obj.url && !obj.attachment) obj.attachment = obj.url;
+                return obj;
+            });
+
             // Populate
             await this.populateEvents(events);
 
@@ -195,9 +202,17 @@ class SportsEventController {
             if (!commId) return res.status(200).json({ success: true, data: [] });
 
             const events = await sportsEventService.getUpcomingSportsEvents(commId);
-            await this.populateEvents(events);
 
-            const limited = events.slice(0, parseInt(limit));
+            // Convert and map attachment
+            const plainEvents = events.map(e => {
+                const obj = e.toObject ? e.toObject() : e;
+                if (obj.url && !obj.attachment) obj.attachment = obj.url;
+                return obj;
+            });
+
+            await this.populateEvents(plainEvents);
+
+            const limited = plainEvents.slice(0, parseInt(limit));
 
             res.status(200).json({
                 success: true,

@@ -8,7 +8,7 @@ class KartavyaService {
     }
 
     async createKartavya(kartavyaData, communityId, createdBy) {
-        return this.kartavyaRepo.create({ ...kartavyaData, communityId, createdBy });
+        return this.kartavyaRepo.create({ ...kartavyaData, community: communityId, createdBy });
     }
 
     async getKartavyaById(kartavyaId) {

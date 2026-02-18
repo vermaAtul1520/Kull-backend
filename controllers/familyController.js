@@ -62,15 +62,30 @@ exports.getFamilyTree = async (req, res) => {
     const relationships = await familyService.getRelationshipsForUser(userId);
 
     // Populate related users
-    const relatedUserIds = relationships.map(r => r.relatedUser || r.relatedUserId).filter(id => id);
-    const relatedUsers = await userService.getManyByIds(relatedUserIds);
-    const userMap = relatedUsers.reduce((acc, u) => ({ ...acc, [u.id || u._id]: u }), {});
+    const relatedUserIds = relationships.map(r => {
+      const ru = r.relatedUser;
+      if (ru && typeof ru === 'object') return ru.id || ru._id;
+      return ru || r.relatedUserId;
+    }).filter(id => id);
+
+    // De-duplicate IDs before fetching
+    const uniqueIds = [...new Set(relatedUserIds.map(id => id.toString()))];
+
+    const relatedUsers = await userService.getManyByIds(uniqueIds);
+    const userMap = relatedUsers.reduce((acc, u) => ({ ...acc, [(u.id || u._id).toString()]: u }), {});
 
     // Group by relation type
     const tree = {};
 
     relationships.forEach(rel => {
-      const rUser = userMap[rel.relatedUser || rel.relatedUserId];
+      const ru = rel.relatedUser;
+      const relUserId = (ru && typeof ru === 'object')
+        ? (ru.id || ru._id)
+        : (ru || rel.relatedUserId);
+
+      if (!relUserId) return;
+
+      const rUser = userMap[relUserId.toString()];
       if (rUser) {
         const type = rel.relationType;
         if (!tree[type]) tree[type] = [];

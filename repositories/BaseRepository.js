@@ -413,8 +413,10 @@ class BaseRepository {
      * @private
      */
     _buildFilterExpression(criteria) {
+        const expressions = [];
+
         if (criteria.$or && Array.isArray(criteria.$or)) {
-            const expressions = criteria.$or.map((cond, i) => {
+            const orExpressions = criteria.$or.map((cond, i) => {
                 const subKeys = Object.keys(cond);
                 return subKeys.map((k, j) => {
                     const val = cond[k];
@@ -424,17 +426,22 @@ class BaseRepository {
                     return `#orField${i}_${j} = :orVal${i}_${j}`;
                 }).join(' AND ');
             });
-            return `(${expressions.join(') OR (')})`;
+            expressions.push(`(${orExpressions.join(') OR (')})`);
         }
 
-        const conditions = Object.keys(criteria).map((key, index) => {
-            const value = criteria[key];
-            if (value && typeof value === 'object' && value.$regex) {
-                return `contains(#field${index}, :val${index})`;
-            }
-            return `#field${index} = :val${index}`;
-        });
-        return conditions.join(' AND ');
+        const standardKeys = Object.keys(criteria).filter(k => k !== '$or');
+        if (standardKeys.length > 0) {
+            const standardExpressions = standardKeys.map((key, index) => {
+                const value = criteria[key];
+                if (value && typeof value === 'object' && value.$regex) {
+                    return `contains(#field${index}, :val${index})`;
+                }
+                return `#field${index} = :val${index}`;
+            });
+            expressions.push(standardExpressions.join(' AND '));
+        }
+
+        return expressions.join(' AND ');
     }
 
     /**
@@ -443,6 +450,7 @@ class BaseRepository {
      */
     _buildFilterValues(criteria) {
         const values = {};
+
         if (criteria.$or && Array.isArray(criteria.$or)) {
             criteria.$or.forEach((cond, i) => {
                 Object.keys(cond).forEach((k, j) => {
@@ -450,12 +458,13 @@ class BaseRepository {
                     values[`:orVal${i}_${j}`] = (val && typeof val === 'object' && val.$regex) ? val.$regex : val;
                 });
             });
-            return values;
         }
 
-        Object.values(criteria).forEach((value, index) => {
+        Object.keys(criteria).filter(k => k !== '$or').forEach((key, index) => {
+            const value = criteria[key];
             values[`:val${index}`] = (value && typeof value === 'object' && value.$regex) ? value.$regex : value;
         });
+
         return values;
     }
 
@@ -465,18 +474,19 @@ class BaseRepository {
      */
     _buildExpressionNames(criteria) {
         const names = {};
+
         if (criteria.$or && Array.isArray(criteria.$or)) {
             criteria.$or.forEach((cond, i) => {
                 Object.keys(cond).forEach((k, j) => {
                     names[`#orField${i}_${j}`] = k;
                 });
             });
-            return names;
         }
 
-        Object.keys(criteria).forEach((key, index) => {
+        Object.keys(criteria).filter(k => k !== '$or').forEach((key, index) => {
             names[`#field${index}`] = key;
         });
+
         return names;
     }
 }

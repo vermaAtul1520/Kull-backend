@@ -144,6 +144,12 @@ class CommunityController {
           delete userObj.password;
         }
         delete userObj.plainTextPassword;
+
+        // Issue 6: Show occupation instead of position
+        if (userObj.occupation) {
+          userObj.positionInCommunity = userObj.occupation;
+        }
+
         return userObj;
       });
 

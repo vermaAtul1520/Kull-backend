@@ -5,7 +5,7 @@ const { generateSortKey } = require('../db/schemas/dynamodb-tables');
 
 class MeetingRepository extends CommunityEntityRepository {
     constructor() {
-        super('Meeting', 'meetings', 'communityId');
+        super('Meeting', 'meetings', 'community');
     }
 
     /**
