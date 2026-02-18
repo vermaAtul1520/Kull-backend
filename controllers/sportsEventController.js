@@ -56,22 +56,22 @@ class SportsEventController {
 
             let commId = req.user.community;
 
-            // Handle filter query param (JSON string like ?filter={"community":"..."})
+            // Extract from parsedQuery (populated by middleware) or manual query
+            const parsedCommunity = req.parsedQuery?.filter?.community;
             let filterCommunity = null;
+
             if (req.query.filter) {
                 try {
-                    const parsedFilter = JSON.parse(req.query.filter);
-                    if (parsedFilter.community) {
-                        filterCommunity = parsedFilter.community;
-                    }
-                } catch (e) {
-                    console.error("Failed to parse filter query param:", e);
-                }
+                    const parsed = JSON.parse(req.query.filter);
+                    filterCommunity = parsed.community;
+                } catch (e) { }
             }
 
             if (req.user.isSuperAdmin) {
                 if (req.query.community) {
                     commId = req.query.community;
+                } else if (parsedCommunity) {
+                    commId = parsedCommunity;
                 } else if (filterCommunity) {
                     commId = filterCommunity;
                 } else {

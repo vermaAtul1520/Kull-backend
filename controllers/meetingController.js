@@ -47,11 +47,29 @@ class MeetingController {
             }
 
             let commId = req.user.community;
-            if (req.user.isSuperAdmin && req.query.community) {
-                commId = req.query.community;
-            } else if (req.user.isSuperAdmin) {
-                // If superadmin but no community, empty list (avoid scan)
-                return res.status(200).json({ success: true, count: 0, data: [] });
+
+            // Extract from parsedQuery (populated by middleware) or manual query
+            const parsedCommunity = req.parsedQuery?.filter?.community;
+            let filterCommunity = null;
+
+            if (req.query.filter) {
+                try {
+                    const parsed = JSON.parse(req.query.filter);
+                    filterCommunity = parsed.community;
+                } catch (e) { }
+            }
+
+            if (req.user.isSuperAdmin) {
+                if (req.query.community) {
+                    commId = req.query.community;
+                } else if (parsedCommunity) {
+                    commId = parsedCommunity;
+                } else if (filterCommunity) {
+                    commId = filterCommunity;
+                } else {
+                    // If superadmin but no community, empty list (avoid scan)
+                    return res.status(200).json({ success: true, count: 0, data: [] });
+                }
             }
 
             if (typeof commId === 'object') commId = commId._id.toString();
