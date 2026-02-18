@@ -7,6 +7,7 @@ describe('BaseRepository DynamoDB Filter Expression Builder', () => {
         repo = new BaseRepository('Test', 'test-table');
         // Force DynamoDB mode
         process.env.DB_TYPE = 'dynamodb';
+        repo.dbType = 'dynamodb';
     });
 
     it('should build simple filter expression', () => {
@@ -47,5 +48,41 @@ describe('BaseRepository DynamoDB Filter Expression Builder', () => {
         expect(values[':orVal1_0']).toBe('Smi');
         expect(names['#orField0_0']).toBe('firstName');
         expect(names['#orField1_0']).toBe('lastName');
+    });
+
+    describe('_normalizeCriteria', () => {
+        it('should map community to communityId for DynamoDB', () => {
+            const criteria = { community: '123' };
+            const normalized = repo._normalizeCriteria(criteria);
+            expect(normalized.communityId).toBe('123');
+            expect(normalized.community).toBeUndefined();
+        });
+
+        it('should stringify object values for DynamoDB', () => {
+            const criteria = { community: { _id: '123' } };
+            const normalized = repo._normalizeCriteria(criteria);
+            expect(normalized.communityId).toBe('123');
+        });
+
+        it('should handle $or with community mapping', () => {
+            const criteria = {
+                $or: [
+                    { community: '123' },
+                    { firstName: 'John' }
+                ]
+            };
+            const normalized = repo._normalizeCriteria(criteria);
+            expect(normalized.$or[0].communityId).toBe('123');
+            expect(normalized.$or[1].firstName).toBe('John');
+        });
+
+        it('should not modify criteria if not in DynamoDB mode', () => {
+            process.env.DB_TYPE = 'mongodb';
+            repo.dbType = 'mongodb';
+            const criteria = { community: '123' };
+            const normalized = repo._normalizeCriteria(criteria);
+            expect(normalized.community).toBe('123');
+            expect(normalized.communityId).toBeUndefined();
+        });
     });
 });

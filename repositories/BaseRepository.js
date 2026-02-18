@@ -124,10 +124,11 @@ class BaseRepository {
         } else {
             // DynamoDB: Need to implement index-based query
             // This is a fallback using scan - should be overridden in subclass
+            const normalizedCriteria = this._normalizeCriteria(criteria);
             const result = await this.getDb().scan(this.tableName, {
-                filterExpression: this._buildFilterExpression(criteria),
-                filterValues: this._buildFilterValues(criteria),
-                expressionAttributeNames: this._buildExpressionNames(criteria),
+                filterExpression: this._buildFilterExpression(normalizedCriteria),
+                filterValues: this._buildFilterValues(normalizedCriteria),
+                expressionAttributeNames: this._buildExpressionNames(normalizedCriteria),
                 limit: 1
             });
             return this._transformResult(result.items[0]) || null;
@@ -165,19 +166,23 @@ class BaseRepository {
             return this._transformResult(result);
         } else {
             // DynamoDB: Generic scan - should be overridden for efficient queries
-            const result = await this.getDb().scan(this.tableName, {
-                filterExpression: Object.keys(criteria).length > 0
-                    ? this._buildFilterExpression(criteria)
+            // Use _scanAll to handle multiple pages of results automatically
+            const normalizedCriteria = this._normalizeCriteria(criteria);
+            const items = await this._scanAll(this.tableName, {
+                filterExpression: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildFilterExpression(normalizedCriteria)
                     : undefined,
-                filterValues: Object.keys(criteria).length > 0
-                    ? this._buildFilterValues(criteria)
+                filterValues: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildFilterValues(normalizedCriteria)
                     : undefined,
-                expressionAttributeNames: Object.keys(criteria).length > 0
-                    ? this._buildExpressionNames(criteria)
-                    : undefined,
-                limit: options.limit
+                expressionAttributeNames: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildExpressionNames(normalizedCriteria)
+                    : undefined
             });
-            return this._transformResult(result.items);
+
+            const limit = options.limit || items.length;
+            const skip = options.skip || 0;
+            return items.slice(skip, skip + limit);
         }
     }
 
@@ -293,18 +298,19 @@ class BaseRepository {
             return Model.countDocuments(criteria);
         } else {
             // DynamoDB: Count via scan (expensive - should use for small datasets)
-            const result = await this.getDb().scan(this.tableName, {
-                filterExpression: Object.keys(criteria).length > 0
-                    ? this._buildFilterExpression(criteria)
+            const normalizedCriteria = this._normalizeCriteria(criteria);
+            const items = await this._scanAll(this.tableName, {
+                filterExpression: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildFilterExpression(normalizedCriteria)
                     : undefined,
-                filterValues: Object.keys(criteria).length > 0
-                    ? this._buildFilterValues(criteria)
+                filterValues: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildFilterValues(normalizedCriteria)
                     : undefined,
-                expressionAttributeNames: Object.keys(criteria).length > 0
-                    ? this._buildExpressionNames(criteria)
+                expressionAttributeNames: Object.keys(normalizedCriteria).length > 0
+                    ? this._buildExpressionNames(normalizedCriteria)
                     : undefined,
             });
-            return result.count || 0;
+            return items.length;
         }
     }
 
@@ -488,6 +494,53 @@ class BaseRepository {
         });
 
         return names;
+    }
+
+    /**
+     * Normalize criteria for DynamoDB (field mapping, value stringification)
+     * @param {Object} criteria 
+     * @returns {Object}
+     * @private
+     */
+    _normalizeCriteria(criteria) {
+        if (!this.isDynamoDB() || !criteria) return criteria;
+
+        const normalized = {};
+
+        // Helper to normalize a single condition object
+        const normalizeItem = (item) => {
+            const newItem = {};
+            Object.entries(item).forEach(([key, value]) => {
+                let newKey = key;
+                let newValue = value;
+
+                // Map 'community' -> 'communityId'
+                if (key === 'community') newKey = 'communityId';
+
+                // Map 'author' -> 'authorId' (extra safety)
+                if (key === 'author') newKey = 'authorId';
+
+                // Stringify IDs/Objects
+                if (newValue && typeof newValue === 'object' && !newValue.$regex && !(newValue instanceof RegExp)) {
+                    newValue = (newValue._id || newValue.id || newValue).toString();
+                }
+
+                newItem[newKey] = newValue;
+            });
+            return newItem;
+        };
+
+        if (criteria.$or && Array.isArray(criteria.$or)) {
+            normalized.$or = criteria.$or.map(cond => normalizeItem(cond));
+        }
+
+        const standardKeys = Object.keys(criteria).filter(k => k !== '$or');
+        standardKeys.forEach(key => {
+            const normalizedItem = normalizeItem({ [key]: criteria[key] });
+            Object.assign(normalized, normalizedItem);
+        });
+
+        return normalized;
     }
 }
 

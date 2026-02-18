@@ -286,7 +286,10 @@ exports.citySearch = async (req, res) => {
     }
 
     // Community filter (critical security filter)
-    if (req.user.community) query.community = req.user.community;
+    if (req.user.community) {
+      const communityId = (req.user.community._id || req.user.community.id || req.user.community).toString();
+      query.community = communityId;
+    }
 
     const users = await userService.userRepo.find(query);
 
