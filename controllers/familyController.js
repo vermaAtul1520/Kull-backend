@@ -166,10 +166,19 @@ exports.searchUsers = async (req, res) => {
 
     // Filter by community in memory (if search returns cross-community)
     // and exclude self.
-    const filtered = users.filter(u =>
-      (u.community === communityId || (u.community && (u.community._id || u.community.id).toString() === communityId.toString())) &&
-      (u.id || u._id).toString() !== req.user.id
-    );
+    const commIdStr = communityId ? (typeof communityId === 'object' ? (communityId._id || communityId.id || communityId).toString() : communityId.toString()) : null;
+
+    const filtered = users.filter(u => {
+      // Exclude self
+      if ((u.id || u._id).toString() === req.user.id) return false;
+      // If no community filter, include all
+      if (!commIdStr) return true;
+      // Compare community (handle string or object)
+      const uComm = u.community;
+      if (!uComm) return false;
+      const uCommStr = typeof uComm === 'object' ? (uComm._id || uComm.id || uComm).toString() : uComm.toString();
+      return uCommStr === commIdStr;
+    });
 
     const mapped = filtered.map(u => ({
       _id: u.id || u._id,

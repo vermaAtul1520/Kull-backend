@@ -127,15 +127,23 @@ exports.assignCommunityToUser = async (req, res) => {
       return res.status(404).json({ success: false, message: "Community not found" });
     }
 
-    // Update user
+    // Superadmin or community admin assigns → auto-approve
+    // Regular user self-assigns → pending
+    const isAdmin = req.user.role === 'superadmin' || req.user.roleInCommunity === 'admin';
+    const newStatus = isAdmin ? "approved" : "pending";
+
     const updatedUser = await userService.updateUser(userId, {
       community: communityId,
-      communityStatus: "pending", // Reset to pending on change
+      communityStatus: newStatus,
     });
+
+    const message = isAdmin
+      ? "Community assigned and user approved successfully."
+      : "Community assigned successfully. Pending approval.";
 
     res.status(200).json({
       success: true,
-      message: "Community assigned successfully. Pending approval.",
+      message,
       data: updatedUser,
     });
   } catch (err) {
@@ -179,16 +187,17 @@ exports.approveUser = async (req, res) => {
   try {
     const { userId } = req.body;
 
-    // Verify current user is admin of the user's community
+    // Check role first — superadmins can approve any user
+    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
     const targetUser = await userService.getUserById(userId);
     if (!targetUser) return res.status(404).json({ success: false, message: "User not found" });
 
-    if (String(targetUser.community) !== String(req.user.community)) {
+    // Community admins can only approve users in their own community
+    if (req.user.role !== 'superadmin' && String(targetUser.community) !== String(req.user.community)) {
       return res.status(403).json({ success: false, message: "User does not belong to your community" });
-    }
-
-    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
-      return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     const updated = await userService.approveUser(userId);
@@ -212,15 +221,17 @@ exports.rejectUser = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    // Check role first — superadmins can reject any user
+    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
     const targetUser = await userService.getUserById(userId);
     if (!targetUser) return res.status(404).json({ success: false, message: "User not found" });
 
-    if (String(targetUser.community) !== String(req.user.community)) {
+    // Community admins can only reject users in their own community
+    if (req.user.role !== 'superadmin' && String(targetUser.community) !== String(req.user.community)) {
       return res.status(403).json({ success: false, message: "User does not belong to your community" });
-    }
-
-    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
-      return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     const updated = await userService.rejectUser(userId);

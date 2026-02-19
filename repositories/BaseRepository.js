@@ -198,14 +198,17 @@ class BaseRepository {
             const saved = await doc.save();
             return this._transformResult(saved.toObject());
         } else {
+            // Normalize data for DynamoDB (field mapping, stringification)
+            const normalizedData = this._normalizeItem({ ...data });
+
             // Add ID if not present or empty
-            if (!data.id || data.id === "") {
-                data.id = this.generateId();
+            if (!normalizedData.id || normalizedData.id === "") {
+                normalizedData.id = this.generateId();
             }
             // Also ensure _id is removed for DynamoDB logic to avoid PK confusion if passed
-            delete data._id;
+            delete normalizedData._id;
 
-            const result = await this.getDb().putItem(this.tableName, data);
+            const result = await this.getDb().putItem(this.tableName, normalizedData);
             return this._transformResult(result);
         }
     }
@@ -227,7 +230,8 @@ class BaseRepository {
             ).lean();
             return this._transformResult(result);
         } else {
-            const result = await this.getDb().updateItem(this.tableName, { id }, updates);
+            const normalizedUpdates = this._normalizeItem({ ...updates });
+            const result = await this.getDb().updateItem(this.tableName, { id }, normalizedUpdates);
             return this._transformResult(result);
         }
     }
@@ -357,6 +361,11 @@ class BaseRepository {
         // Ensure Dynamo id is reflected in _id
         if (item.id && !item._id) {
             item._id = item.id;
+        }
+
+        // Apply denormalization for DynamoDB (communityId -> community)
+        if (this.isDynamoDB()) {
+            return this._denormalizeItem(item);
         }
 
         return item;
@@ -507,40 +516,98 @@ class BaseRepository {
 
         const normalized = {};
 
-        // Helper to normalize a single condition object
-        const normalizeItem = (item) => {
-            const newItem = {};
-            Object.entries(item).forEach(([key, value]) => {
-                let newKey = key;
-                let newValue = value;
-
-                // Map 'community' -> 'communityId'
-                if (key === 'community') newKey = 'communityId';
-
-                // Map 'author' -> 'authorId' (extra safety)
-                if (key === 'author') newKey = 'authorId';
-
-                // Stringify IDs/Objects
-                if (newValue && typeof newValue === 'object' && !newValue.$regex && !(newValue instanceof RegExp)) {
-                    newValue = (newValue._id || newValue.id || newValue).toString();
-                }
-
-                newItem[newKey] = newValue;
-            });
-            return newItem;
-        };
-
         if (criteria.$or && Array.isArray(criteria.$or)) {
-            normalized.$or = criteria.$or.map(cond => normalizeItem(cond));
+            normalized.$or = criteria.$or.map(cond => this._normalizeItem(cond));
         }
 
         const standardKeys = Object.keys(criteria).filter(k => k !== '$or');
         standardKeys.forEach(key => {
-            const normalizedItem = normalizeItem({ [key]: criteria[key] });
+            const normalizedItem = this._normalizeItem({ [key]: criteria[key] });
             Object.assign(normalized, normalizedItem);
         });
 
         return normalized;
+    }
+
+    /**
+     * Normalize an item/updates object for DynamoDB
+     * @param {Object} item 
+     * @returns {Object}
+     * @private
+     */
+    _normalizeItem(item) {
+        if (!this.isDynamoDB() || !item) return item;
+
+        const newItem = {};
+        Object.entries(item).forEach(([key, value]) => {
+            let newKey = key;
+            let newValue = value;
+
+            // Map 'community' -> 'communityId'
+            if (key === 'community') newKey = 'communityId';
+
+            // Map 'author' -> 'authorId'
+            if (key === 'author') newKey = 'authorId';
+
+            // Stringify IDs/Objects if they are not regex filters (preserve arrays)
+            if (newValue && typeof newValue === 'object' && !Array.isArray(newValue) && !newValue.$regex && !(newValue instanceof RegExp)) {
+                newValue = (newValue._id || newValue.id || newValue).toString();
+            }
+
+            // Handle nested objects if necessary (shallow for now as per current schema)
+            newItem[newKey] = newValue;
+        });
+
+        return newItem;
+    }
+
+    /**
+     * Denormalize an item from DynamoDB back to application format
+     * @param {Object} item 
+     * @returns {Object}
+     * @private
+     */
+    _denormalizeItem(item) {
+        if (!item) return item;
+
+        // Map 'communityId' -> 'community' if community doesn't exist
+        if (item.communityId && !item.community) {
+            item.community = item.communityId;
+        }
+
+        // Map 'authorId' -> 'author' if author doesn't exist
+        if (item.authorId && !item.author) {
+            item.author = item.authorId;
+        }
+
+        // Remove DynamoDB-specific internal keys to match MongoDB response shape
+        delete item.communityId;
+        delete item.authorId;
+        delete item.pk;
+        delete item.sk;
+
+        // Fix already-corrupted array fields (strings that should be arrays)
+        const arrayFields = ['interests', 'responsibilities', 'permissions'];
+        for (const field of arrayFields) {
+            if (item[field] !== undefined && item[field] !== null) {
+                if (typeof item[field] === 'string') {
+                    // Convert comma-separated string back to array, or wrap single value
+                    item[field] = item[field] ? [item[field]] : [];
+                }
+            } else if (item[field] === null) {
+                // MongoDB would return [] for these fields (default in schema)
+                item[field] = [];
+            }
+        }
+
+        // Strip null values to match MongoDB behavior (MongoDB omits undefined fields)
+        Object.keys(item).forEach(key => {
+            if (item[key] === null) {
+                delete item[key];
+            }
+        });
+
+        return item;
     }
 }
 

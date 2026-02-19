@@ -101,9 +101,9 @@ class FamilyService {
 
         await this.familyRepo.updateById(relationshipId, { relationType: newRelationType });
 
-        // Reverse
-        const userId = forward.user._id || forward.user || forward.userId;
-        const relatedUserId = forward.relatedUser._id || forward.relatedUser || forward.relatedUserId;
+        // Safely extract user IDs (handles both MongoDB objects and DynamoDB strings)
+        const userId = (forward.user && typeof forward.user === 'object') ? (forward.user._id || forward.user.id) : (forward.user || forward.userId);
+        const relatedUserId = (forward.relatedUser && typeof forward.relatedUser === 'object') ? (forward.relatedUser._id || forward.relatedUser.id) : (forward.relatedUser || forward.relatedUserId);
 
         const reverse = await this.familyRepo.findOne({ user: relatedUserId, relatedUser: userId });
         if (reverse) {
@@ -135,14 +135,13 @@ class FamilyService {
         const forward = await this.familyRepo.findById(relationshipId);
         if (!forward) return false;
 
-        const userId = forward.user._id || forward.user || forward.userId;
-        const relatedUserId = forward.relatedUser._id || forward.relatedUser || forward.relatedUserId;
+        // Safely extract user IDs (handles both MongoDB objects and DynamoDB strings)
+        const userId = (forward.user && typeof forward.user === 'object') ? (forward.user._id || forward.user.id) : (forward.user || forward.userId);
+        const relatedUserId = (forward.relatedUser && typeof forward.relatedUser === 'object') ? (forward.relatedUser._id || forward.relatedUser.id) : (forward.relatedUser || forward.relatedUserId);
 
         await this.familyRepo.deleteById(relationshipId);
 
         // Reverse delete
-        // We need to find reverse relationship ID or use deleteRelationship logic
-        // Let's try to find it first
         const reverse = await this.familyRepo.findOne({ user: relatedUserId, relatedUser: userId });
         if (reverse) {
             await this.familyRepo.deleteById(reverse.id || reverse._id);

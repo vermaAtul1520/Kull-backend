@@ -212,15 +212,6 @@ class UserRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return super.create(userData);
         } else {
-            // For DynamoDB, convert community ObjectId to string
-            if (userData.community && typeof userData.community === 'object') {
-                userData.communityId = userData.community.toString();
-                delete userData.community;
-            } else if (userData.community) {
-                userData.communityId = userData.community;
-                delete userData.community;
-            }
-
             return super.create(userData);
         }
     }

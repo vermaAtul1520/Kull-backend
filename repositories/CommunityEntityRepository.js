@@ -217,6 +217,35 @@ class CommunityEntityRepository extends BaseRepository {
     }
 
     /**
+     * Internal: find by ID WITHOUT denormalization (preserves DynamoDB keys like communityId, sk)
+     * Used by updateById/deleteById which need raw keys for DynamoDB operations
+     * @param {string} id 
+     * @returns {Promise<Object|null>}
+     * @private
+     */
+    async _findByIdRaw(id) {
+        try {
+            const result = await this.getDb().query(this.tableName, {
+                indexName: 'id-index',
+                keyCondition: 'id = :id',
+                keyValues: { ':id': id },
+                limit: 1
+            });
+            return result.items[0] || null;
+        } catch (error) {
+            if (error.name === 'ValidationException' || error.message.includes('index')) {
+                const result = await this.getDb().scan(this.tableName, {
+                    filterExpression: 'id = :id',
+                    filterValues: { ':id': id },
+                    limit: 1
+                });
+                return result.items[0] || null;
+            }
+            throw error;
+        }
+    }
+
+    /**
      * Update entity by ID (with DynamoDB key handling)
      * @param {string} id 
      * @param {Object} updates 
@@ -226,7 +255,7 @@ class CommunityEntityRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return super.updateById(id, updates);
         } else {
-            const entity = await this.findById(id);
+            const entity = await this._findByIdRaw(id);
             if (!entity) return null;
 
             return this.getDb().updateItem(this.tableName, {
@@ -245,7 +274,7 @@ class CommunityEntityRepository extends BaseRepository {
         if (this.isMongoDB()) {
             return super.deleteById(id);
         } else {
-            const entity = await this.findById(id);
+            const entity = await this._findByIdRaw(id);
             if (!entity) return false;
 
             return this.getDb().deleteItem(this.tableName, {

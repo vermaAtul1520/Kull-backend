@@ -85,4 +85,74 @@ describe('BaseRepository DynamoDB Filter Expression Builder', () => {
             expect(normalized.communityId).toBeUndefined();
         });
     });
+
+    describe('_normalizeItem', () => {
+        it('should map community to communityId', () => {
+            const item = { community: '123', name: 'Test' };
+            const normalized = repo._normalizeItem(item);
+            expect(normalized.communityId).toBe('123');
+            expect(normalized.community).toBeUndefined();
+            expect(normalized.name).toBe('Test');
+        });
+
+        it('should map author to authorId', () => {
+            const item = { author: 'user1', title: 'Hello' };
+            const normalized = repo._normalizeItem(item);
+            expect(normalized.authorId).toBe('user1');
+            expect(normalized.author).toBeUndefined();
+        });
+
+        it('should stringify object IDs', () => {
+            const item = { community: { id: 'abc' } };
+            const normalized = repo._normalizeItem(item);
+            expect(normalized.communityId).toBe('abc');
+        });
+    });
+
+    describe('_denormalizeItem', () => {
+        it('should map communityId back to community and remove communityId', () => {
+            const item = { communityId: '123', name: 'Test' };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.community).toBe('123');
+            expect(denormalized.communityId).toBeUndefined(); // Cleaned up to match MongoDB
+        });
+
+        it('should map authorId back to author and remove authorId', () => {
+            const item = { authorId: 'user1' };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.author).toBe('user1');
+            expect(denormalized.authorId).toBeUndefined(); // Cleaned up to match MongoDB
+        });
+
+        it('should fix corrupted array fields (string -> array)', () => {
+            const item = { interests: 'none', responsibilities: 'task1' };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.interests).toEqual(['none']);
+            expect(denormalized.responsibilities).toEqual(['task1']);
+        });
+
+        it('should convert null array fields to empty arrays', () => {
+            const item = { interests: null, permissions: null };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.interests).toEqual([]);
+            expect(denormalized.permissions).toEqual([]);
+        });
+
+        it('should strip null values from items', () => {
+            const item = { name: 'Test', cGotNo: null, cast: null, phone: '123' };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.name).toBe('Test');
+            expect(denormalized.phone).toBe('123');
+            expect(denormalized.cGotNo).toBeUndefined();
+            expect(denormalized.cast).toBeUndefined();
+        });
+
+        it('should remove pk and sk keys', () => {
+            const item = { pk: 'USER#123', sk: 'PROFILE', name: 'Test' };
+            const denormalized = repo._denormalizeItem(item);
+            expect(denormalized.pk).toBeUndefined();
+            expect(denormalized.sk).toBeUndefined();
+            expect(denormalized.name).toBe('Test');
+        });
+    });
 });

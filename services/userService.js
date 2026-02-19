@@ -55,7 +55,9 @@ class UserService {
         delete updates.pk;
         delete updates.sk;
 
-        return this.userRepo.updateById(userId, updates);
+        await this.userRepo.updateById(userId, updates);
+        // Re-fetch full profile to ensure consistent response with getOwnProfile
+        return this.getUserProfile(userId);
     }
 
     /**
