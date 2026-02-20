@@ -170,7 +170,7 @@ const transforms = {
     // Generic community entity (Donations, News, Appeals, etc.)
     generic: (doc) => ({
         ...JSON.parse(JSON.stringify(doc)),
-        communityId: cleanId(doc.community),
+        communityId: cleanId(doc.community) || 'none',
         sk: `${toISO(doc.createdAt)}#${cleanId(doc._id)}`,
         id: cleanId(doc._id),
         createdAt: toISO(doc.createdAt),

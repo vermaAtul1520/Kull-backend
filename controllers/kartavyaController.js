@@ -43,13 +43,18 @@ class KartavyaController {
       const queryLimit = limit || 20;
       const querySkip = skip || 0;
 
+      let total = 0;
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
         const { community } = req.query;
-        if (community) {
-          kartavyas = await kartavyaService.getKartavyaByCommunity(community, { limit: queryLimit, skip: querySkip, filters: filter });
+        const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+        const targetCommunity = community || userCommId;
+
+        if (targetCommunity) {
+          kartavyas = await kartavyaService.getKartavyaByCommunity(targetCommunity, { limit: queryLimit, skip: querySkip, filters: filter });
+          total = await kartavyaService.kartavyaRepo.countByCommunity(targetCommunity, filter);
         } else {
-          // Fetch across all for superadmin with filters
-          kartavyas = await kartavyaService.kartavyaRepo.find(filter || {}, { limit: queryLimit, skip: querySkip });
+          kartavyas = [];
+          total = 0;
         }
       } else {
         const userCommunity = req.user.community;
@@ -58,6 +63,7 @@ class KartavyaController {
         }
         const userCommId = userCommunity._id || userCommunity.id || userCommunity;
         kartavyas = await kartavyaService.getKartavyaByCommunity(String(userCommId), { limit: queryLimit, skip: querySkip, filters: filter });
+        total = await kartavyaService.kartavyaRepo.countByCommunity(String(userCommId), filter);
       }
 
       // Populate createdBy and Community
@@ -90,7 +96,14 @@ class KartavyaController {
         };
       });
 
-      return res.status(200).json({ success: true, count: populated.length, data: populated });
+      return res.status(200).json({
+        success: true,
+        total,
+        page: parseInt(page) || 1,
+        limit: queryLimit,
+        count: populated.length,
+        data: populated
+      });
     } catch (err) {
       next(err);
     }

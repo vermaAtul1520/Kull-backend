@@ -72,8 +72,16 @@ class PostRepository extends CommunityEntityRepository {
             let processedItems = this._transformResult(allItems);
 
             // 2. Apply Filters (In-Memory)
-            if (options.isActive !== undefined) {
-                processedItems = processedItems.filter(p => p.isActive === options.isActive);
+            const filters = { ...options.filters };
+            if (options.isActive !== undefined) filters.isActive = options.isActive;
+
+            if (Object.keys(filters).length > 0) {
+                processedItems = processedItems.filter(p => {
+                    return Object.entries(filters).every(([key, value]) => {
+                        if (p[key] === undefined || p[key] === null) return false;
+                        return p[key].toString() === value.toString();
+                    });
+                });
             }
 
             // 3. Apply Sort (Default: createdAt desc)

@@ -115,11 +115,12 @@ class DukaanController {
   getAllDukaans = async (req, res, next) => {
     try {
       let dukaans = [];
+      const page = req.query.page ? parseInt(req.query.page) : 1;
       const limit = parseInt(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
+      let total = 0;
 
       if (req.user.isSuperAdmin) {
-        // See all? Not efficient.
-        // Or filter by community if provided?
         // Parse filter query param
         let filterCommunity = null;
         if (req.query.filter) {
@@ -134,12 +135,19 @@ class DukaanController {
         }
 
         const { community } = req.query;
-        const targetCommunity = community || filterCommunity;
+        let targetCommunity = community || filterCommunity;
+
+        // Force default to user's community if no specific community is filtered
+        if (!targetCommunity) {
+          targetCommunity = userCommId;
+        }
 
         if (targetCommunity) {
-          dukaans = await dukaanService.getDukaansByCommunity(targetCommunity, { limit });
+          dukaans = await dukaanService.getDukaansByCommunity(targetCommunity, { limit, skip });
+          total = await dukaanService.dukaanRepo.countByCommunity(targetCommunity);
         } else {
-          dukaans = []; // Avoiding full scan
+          dukaans = [];
+          total = 0;
         }
       } else {
         const userCommunity = req.user.community;
@@ -150,7 +158,8 @@ class DukaanController {
           });
         }
         const userCommId = userCommunity._id || userCommunity.id || userCommunity;
-        dukaans = await dukaanService.getDukaansByCommunity(String(userCommId), { limit });
+        dukaans = await dukaanService.getDukaansByCommunity(String(userCommId), { limit, skip });
+        total = await dukaanService.dukaanRepo.countByCommunity(String(userCommId));
       }
 
       // Populate Owner/Community?
@@ -170,7 +179,14 @@ class DukaanController {
         } : (d.owner || d.createdBy)
       }));
 
-      res.status(200).json({ success: true, count: populated.length, data: populated });
+      res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: populated.length,
+        data: populated
+      });
     } catch (err) {
       next(err);
     }

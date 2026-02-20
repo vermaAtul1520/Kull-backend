@@ -50,14 +50,14 @@ class PostService {
     /**
      * Update post
      */
-    async updatePost(postId, updates, userId) {
+    async updatePost(postId, updates, userId, isAdmin = false) {
         const post = await this.postRepo.findById(postId);
         if (!post) {
             throw { status: 404, message: 'Post not found' };
         }
 
         const authorId = post.author?._id || post.author || post.authorId;
-        if (authorId?.toString() !== userId?.toString()) {
+        if (!isAdmin && authorId?.toString() !== userId?.toString()) {
             throw { status: 403, message: 'Not authorized to update this post' };
         }
 

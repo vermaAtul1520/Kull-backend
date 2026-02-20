@@ -135,13 +135,24 @@ class CommunityBhajansController {
   getBhajansByCommunity = async (req, res, next) => {
     try {
       const { communityId } = req.params;
+      const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
-      const options = { limit: limit, filters: {} };
+      const skip = (page - 1) * limit;
+
+      const options = { limit, skip, filters: {} };
       if (req.query.category) options.filters.category = req.query.category;
 
       const bhajans = await bhajanService.getBhajansByCommunity(communityId, options);
+      const total = await bhajanService.bhajanRepo.countByCommunity(communityId, options.filters);
 
-      res.status(200).json({ success: true, count: bhajans.length, data: bhajans });
+      res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: bhajans.length,
+        data: bhajans
+      });
     } catch (err) {
       next(err);
     }

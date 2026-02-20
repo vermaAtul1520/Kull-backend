@@ -39,7 +39,9 @@ class MeetingController {
     getAllMeetings = async (req, res, next) => {
         try {
             let meetings = [];
+            const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
+            const skip = (page - 1) * limit;
 
             // Simplified: Community Admin or User
             if (!req.user.community && !req.user.isSuperAdmin) {
@@ -67,14 +69,16 @@ class MeetingController {
                 } else if (filterCommunity) {
                     commId = filterCommunity;
                 } else {
-                    // If superadmin but no community, empty list (avoid scan)
-                    return res.status(200).json({ success: true, count: 0, data: [] });
+                    // Default to own community
+                    commId = req.user.community;
                 }
             }
 
             if (typeof commId === 'object') commId = commId._id.toString();
 
-            meetings = await meetingService.getMeetingsByCommunity(commId, { limit });
+            const options = { limit, skip };
+            meetings = await meetingService.getMeetingsByCommunity(commId, options);
+            const total = await meetingService.meetingRepo.countByCommunity(commId);
 
             // Convert and map attachment
             meetings = meetings.map(m => {
@@ -86,7 +90,14 @@ class MeetingController {
             // Populate
             await this.populateMeetings(meetings);
 
-            res.status(200).json({ success: true, count: meetings.length, data: meetings });
+            res.status(200).json({
+                success: true,
+                total,
+                page,
+                limit,
+                count: meetings.length,
+                data: meetings
+            });
         } catch (err) {
             next(err);
         }

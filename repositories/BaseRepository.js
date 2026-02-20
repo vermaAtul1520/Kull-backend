@@ -441,7 +441,7 @@ class BaseRepository {
                     return `#orField${i}_${j} = :orVal${i}_${j}`;
                 }).join(' AND ');
             });
-            expressions.push(`(${orExpressions.join(') OR (')})`);
+            expressions.push(`(${orExpressions.map(exp => `(${exp})`).join(' OR ')})`);
         }
 
         const standardKeys = Object.keys(criteria).filter(k => k !== '$or');

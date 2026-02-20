@@ -44,7 +44,10 @@ class EducationResourceController {
   getAllResources = async (req, res, next) => {
     try {
       let resources = [];
+      const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
+      let total = 0;
 
       if (req.user.isSuperAdmin) {
         // Parse filter query param
@@ -61,12 +64,15 @@ class EducationResourceController {
         }
 
         const { community } = req.query;
-        const targetCommunity = community || filterCommunity;
+        const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+        const targetCommunity = community || filterCommunity || userCommId;
 
         if (targetCommunity) {
-          resources = await educationService.getResourcesByCommunity(targetCommunity, { limit });
+          resources = await educationService.getResourcesByCommunity(targetCommunity, { limit, skip });
+          total = await educationService.educationRepo.countByCommunity(targetCommunity);
         } else {
           resources = [];
+          total = 0;
         }
       } else {
         const userCommunity = req.user.community;
@@ -77,7 +83,8 @@ class EducationResourceController {
           });
         }
         const userCommId = userCommunity._id || userCommunity.id || userCommunity;
-        resources = await educationService.getResourcesByCommunity(String(userCommId), { limit });
+        resources = await educationService.getResourcesByCommunity(String(userCommId), { limit, skip });
+        total = await educationService.educationRepo.countByCommunity(String(userCommId));
       }
 
       // Populate createdBy
@@ -94,7 +101,14 @@ class EducationResourceController {
         } : r.createdBy
       }));
 
-      return res.status(200).json({ success: true, count: populated.length, data: populated });
+      return res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: populated.length,
+        data: populated
+      });
     } catch (err) {
       next(err);
     }

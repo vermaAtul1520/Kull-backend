@@ -149,11 +149,20 @@ exports.getCommunityNews = async (req, res, next) => {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     let newsList = [];
-    if (role === 'superadmin' && communityId === 'all') {
-      newsList = await newsService.newsRepo.findRecent({ limit: 50 });
+    let total = 0;
+    const targetCommunityId = communityId === 'all' ? userCommId : communityId;
+
+    if (targetCommunityId) {
+      newsList = await newsService.getNewsByCommunity(targetCommunityId, { limit, skip });
+      total = await newsService.newsRepo.countByCommunity(targetCommunityId);
     } else {
-      newsList = await newsService.getNewsByCommunity(communityId);
+      newsList = [];
+      total = 0;
     }
 
     const authorIds = [...new Set(newsList.map(n => n.author))].filter(id => id);
@@ -186,6 +195,10 @@ exports.getCommunityNews = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       statusCode: 200,
+      total,
+      page,
+      limit,
+      count: populated.length,
       data: populated
     });
   } catch (err) {

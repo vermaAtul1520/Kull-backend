@@ -56,11 +56,20 @@ exports.getDonationsByCommunity = async (req, res) => {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     let donations = [];
-    if (role === 'superadmin' && communityId === 'all') {
-      donations = await donationService.donationRepo.findRecent({ limit: 50 });
+    let total = 0;
+    const targetCommunityId = communityId === 'all' ? userCommId : communityId;
+
+    if (targetCommunityId) {
+      donations = await donationService.getDonationsByCommunity(targetCommunityId, { limit, skip });
+      total = await donationService.donationRepo.countByCommunity(targetCommunityId);
     } else {
-      donations = await donationService.getDonationsByCommunity(communityId);
+      donations = [];
+      total = 0;
     }
 
     const userIds = [...new Set(donations.map(d => d.createdBy))].filter(id => id);
@@ -88,6 +97,10 @@ exports.getDonationsByCommunity = async (req, res) => {
     return res.status(200).json({
       success: true,
       statusCode: 200,
+      total,
+      page,
+      limit,
+      count: populated.length,
       data: populated
     });
 

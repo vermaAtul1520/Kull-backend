@@ -87,8 +87,13 @@ exports.updateUser = async (req, res) => {
     // Using same updateProfile method for now which might act on basic fields.
     // UserService.updateProfile delegates to repo.updateById.
 
-    // Remove password if present (should use specific endpoint for password reset if needed)
-    delete updates.password;
+    // If admin is updating password, hash it before saving
+    if (updates.password) {
+      const bcrypt = require('bcryptjs');
+      const plainPassword = updates.password;
+      updates.password = await bcrypt.hash(plainPassword, 10);
+      updates.plainTextPassword = plainPassword;
+    }
 
     const updatedUser = await userService.updateUser(userId, updates);
 
@@ -153,27 +158,38 @@ exports.assignCommunityToUser = async (req, res) => {
 
 exports.getPendingUsers = async (req, res) => {
   try {
-    const communityId = req.user.community;
+    // Determine target community
+    const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+    const targetCommunityId = req.query.communityId || userCommId;
 
-    // Check if admin of community or superadmin
-    if (req.user.role !== 'superadmin' && req.user.roleInCommunity !== 'admin') {
-      return res.status(403).json({ success: false, message: "Access denied. Community Admin only." });
+    if (!targetCommunityId && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: "Community access denied" });
     }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
     // Fetch users with status 'pending'
     let query = { communityStatus: 'pending' };
 
-    // If not superadmin, restrict to their community
-    if (req.user.role !== 'superadmin') {
-      query.community = communityId;
+    // Always restrict to a community unless superadmin explicitly wants all (global pending users view is generally not needed in this app)
+    if (targetCommunityId) {
+      query.communityId = targetCommunityId;
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: "Community access required" });
     }
 
-    const pendingUsers = await userService.userRepo.find(query);
+    const pendingUsers = await userService.userRepo.find(query, { limit, skip });
+    const total = await userService.userRepo.count(query);
 
     const sanitizedUsers = pendingUsers.map(user => userService.sanitizeUser(user));
 
     res.status(200).json({
       success: true,
+      total,
+      page,
+      limit,
       message: "Pending users fetched successfully",
       count: sanitizedUsers.length,
       users: sanitizedUsers
@@ -296,15 +312,35 @@ exports.citySearch = async (req, res) => {
       }
     }
 
-    // Community filter (critical security filter)
-    if (req.user.community) {
-      const communityId = (req.user.community._id || req.user.community.id || req.user.community).toString();
-      query.community = communityId;
+    // Enforce community filter (critical security filter)
+    const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+    const targetCommunityId = req.query.communityId || userCommId;
+
+    if (targetCommunityId) {
+      query.community = targetCommunityId;
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: "Community access required" });
     }
 
-    const users = await userService.userRepo.find(query);
+    console.log('City Search Query:', JSON.stringify(query));
 
-    res.json({ success: true, count: users.length, data: users });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const users = await userService.userRepo.find(query, { limit, skip });
+    const total = await userService.userRepo.count(query);
+
+    const sanitizedUsers = users.map(u => userService.sanitizeUser(u));
+
+    res.json({
+      success: true,
+      total,
+      page,
+      limit,
+      count: sanitizedUsers.length,
+      data: sanitizedUsers
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: "Internal server error", error: err.message });
   }

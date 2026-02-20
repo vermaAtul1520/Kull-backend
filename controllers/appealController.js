@@ -59,29 +59,36 @@ class AppealController {
   getAll = async (req, res, next) => {
     try {
       let appeals = [];
+      const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
-      const skip = parseInt(req.query.skip) || 0;
+      const skip = (page - 1) * limit;
+      let total = 0;
 
       // Inject role-based restrictions
+      const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+      const queryCommunity = req.query.community || req.parsedQuery?.filter?.community;
+      const targetCommunityId = queryCommunity || userCommId;
+
       if (req.user.roleInCommunity === "admin" && req.user.community) {
-        // Community admin sees all appeals in their community
-        const userCommunity = req.user.community;
-        const userCommId = userCommunity._id || userCommunity.id || userCommunity;
-        const communityId = String(userCommId);
-        appeals = await appealService.getAppealsByCommunity(communityId, { limit, skip });
+        // Community admin sees all appeals in their community (or the one they requested if they have rights, but usually just their own)
+        appeals = await appealService.getAppealsByCommunity(targetCommunityId, { limit, skip });
+        total = await appealService.appealRepo.countByCommunity(targetCommunityId);
       } else if (!req.user.isSuperAdmin) {
         // Regular users see only their own appeals
         appeals = await appealService.getAppealsByUser(req.user.id, { limit, skip });
+        total = await appealService.appealRepo.count({ user: req.user.id });
       } else {
-        // Superadmin - fetch from all communities? Or explicit filter?
-        // Legacy generic getAll supported generic filter.
-        // Here we might need 'community' in query to be efficient.
-        const { community } = req.query;
-        if (community) {
-          appeals = await appealService.getAppealsByCommunity(community, { limit, skip });
+        // Superadmin
+        if (targetCommunityId) {
+          appeals = await appealService.getAppealsByCommunity(targetCommunityId, { limit, skip });
+          total = await appealService.appealRepo.countByCommunity(targetCommunityId);
         } else {
-          // Superadmin - fetch from all communities
-          appeals = await appealService.getAllAppeals({ limit, skip });
+          // If no community specified even for superadmin, return empty or global depending on requirement.
+          // For now, defaulting to an empty search if no community is provided, to prevent accidental global scans.
+          // However, if they explicitly want ALL, they should probably have a way.
+          // Given the context of "data leak", empty is safer.
+          appeals = [];
+          total = 0;
         }
       }
 
@@ -101,7 +108,14 @@ class AppealController {
         } : a.user
       }));
 
-      res.status(200).json({ success: true, count: populated.length, data: populated });
+      res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: populated.length,
+        data: populated
+      });
     } catch (err) {
       next(err);
     }

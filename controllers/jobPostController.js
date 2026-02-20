@@ -42,7 +42,10 @@ class JobPostController {
   getAllJobPosts = async (req, res, next) => {
     try {
       let jobPosts = [];
+      const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
+      let total = 0;
 
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
         // Parse filter query param
@@ -59,12 +62,15 @@ class JobPostController {
         }
 
         const { community } = req.query;
-        const targetCommunity = community || filterCommunity;
+        const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+        const targetCommunity = community || filterCommunity || userCommId;
 
         if (targetCommunity) {
-          jobPosts = await jobPostService.getJobPostsByCommunity(targetCommunity, { limit });
+          jobPosts = await jobPostService.getJobPostsByCommunity(targetCommunity, { limit, skip });
+          total = await jobPostService.jobPostRepo.countByCommunity(targetCommunity);
         } else {
           jobPosts = [];
+          total = 0;
         }
       } else {
         // Regular users see all job posts in their community
@@ -74,7 +80,8 @@ class JobPostController {
           return res.status(403).json({ success: false, message: "Community access required" });
         }
         const userCommId = userCommunity._id || userCommunity.id || userCommunity;
-        jobPosts = await jobPostService.getJobPostsByCommunity(String(userCommId), { limit });
+        jobPosts = await jobPostService.getJobPostsByCommunity(String(userCommId), { limit, skip });
+        total = await jobPostService.jobPostRepo.countByCommunity(String(userCommId));
       }
 
       // Populate postedBy (createdBy)
@@ -92,7 +99,14 @@ class JobPostController {
         } : (j.postedBy || j.createdBy)
       }));
 
-      return res.status(200).json({ success: true, count: populated.length, data: populated });
+      return res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        count: populated.length,
+        data: populated
+      });
     } catch (err) {
       next(err);
     }

@@ -14,17 +14,63 @@ const userService = getUserService();
 const populatePosts = async (posts, type = 'list') => {
   if (!posts || posts.length === 0) return [];
 
-  const authorIds = [...new Set(posts.map(p => String(p.authorId || p.author?._id || p.author || '')))].filter(id => id && id.length > 5);
-  const authors = await userService.getManyByIds(authorIds);
-  const authorMap = authors.reduce((acc, u) => ({ ...acc, [String(u.id || u._id)]: u }), {});
+  // Step 1: Preliminary data extraction
+  const postDataArray = await Promise.all(posts.map(async (post) => {
+    const p = post.toObject ? post.toObject() : { ...post };
+    p._id = p.id || p._id;
 
-  const communityIds = [...new Set(posts.map(p => String(p.communityId || p.community?._id || p.community || '')))].filter(id => id && id.length > 5);
-  const communities = await communityService.getManyCommunitiesByIds ? await communityService.getManyCommunitiesByIds(communityIds) : [];
+    try {
+      p.likes = await postService.likeRepo.findByPost(p.id || p._id);
+      p.comments = await postService.commentRepo.findByPost(p.id || p._id, { sort: { createdAt: -1 } });
+    } catch (e) {
+      console.error("Error fetching likes/comments for post:", p._id, e.message);
+      p.likes = [];
+      p.comments = [];
+    }
+    return p;
+  }));
+
+  // Step 2: Collect all unique IDs (Post authors, Like authors, Comment authors)
+  const userIds = new Set();
+  const communityIds = new Set();
+
+  postDataArray.forEach(p => {
+    // Post author
+    const postAuthorId = p.authorId || p.author?._id || p.author;
+    if (postAuthorId) userIds.add(String(typeof postAuthorId === 'object' ? (postAuthorId._id || postAuthorId.id) : postAuthorId));
+
+    // Post community
+    const commId = p.communityId || p.community?._id || p.community;
+    if (commId) communityIds.add(String(typeof commId === 'object' ? (commId._id || commId.id) : commId));
+
+    // Like authors
+    p.likes.forEach(l => {
+      const lid = l.userId || l.user?._id || l.user;
+      if (lid) userIds.add(String(typeof lid === 'object' ? (lid._id || lid.id) : lid));
+    });
+
+    // Comment authors
+    p.comments.forEach(c => {
+      const cid = c.userId || c.user?._id || c.user || c.author;
+      if (cid) userIds.add(String(typeof cid === 'object' ? (cid._id || cid.id) : cid));
+    });
+  });
+
+  // Step 3: Fetch all required users and communities in batches
+  const validUserIds = Array.from(userIds).filter(id => id && id.length > 5);
+  const validCommIds = Array.from(communityIds).filter(id => id && id.length > 5);
+
+  const [users, communities] = await Promise.all([
+    userService.getManyByIds(validUserIds),
+    communityService.getManyCommunitiesByIds ? await communityService.getManyCommunitiesByIds(validCommIds) : []
+  ]);
+
+  const userMap = users.reduce((acc, u) => ({ ...acc, [String(u.id || u._id)]: u }), {});
   const communityMap = communities.reduce((acc, c) => ({ ...acc, [String(c.id || c._id)]: c }), {});
 
-  // Fallback for individual fetch if getMany not present
-  if (communities.length === 0 && communityIds.length > 0) {
-    for (const id of communityIds) {
+  // Fallback for community service if getMany not present (common in earlier versions)
+  if (communities.length === 0 && validCommIds.length > 0) {
+    for (const id of validCommIds) {
       if (!communityMap[id]) {
         const c = await communityService.getCommunityById(id);
         if (c) communityMap[id] = c;
@@ -32,60 +78,56 @@ const populatePosts = async (posts, type = 'list') => {
     }
   }
 
-  const populatedPosts = await Promise.all(posts.map(async (post) => {
-    const p = post.toObject ? post.toObject() : { ...post };
-    p._id = p.id || p._id; // Ensure consistent ID
-
-    // Fix: Handle populated author object to extract ID correctly
-    let authorIdVal = p.authorId || p.author;
-    if (authorIdVal && typeof authorIdVal === 'object') {
-      authorIdVal = authorIdVal._id || authorIdVal.id;
-    }
-    const authorIdStr = String(authorIdVal || '');
-
-    if (authorMap[authorIdStr]) {
+  // Step 4: Final population
+  return postDataArray.map(p => {
+    // Post Author
+    const pAid = String(p.authorId || (typeof p.author === 'object' ? (p.author._id || p.author.id) : p.author) || '');
+    if (userMap[pAid]) {
       p.author = {
-        _id: authorMap[authorIdStr].id || authorMap[authorIdStr]._id,
-        firstName: authorMap[authorIdStr].firstName,
-        lastName: authorMap[authorIdStr].lastName,
-        roleInCommunity: authorMap[authorIdStr].roleInCommunity,
-        profileImage: authorMap[authorIdStr].profileImage
+        _id: userMap[pAid].id || userMap[pAid]._id,
+        firstName: userMap[pAid].firstName,
+        lastName: userMap[pAid].lastName,
+        roleInCommunity: userMap[pAid].roleInCommunity,
+        profileImage: userMap[pAid].profileImage
       };
     }
 
-    const commIdStr = String(p.communityId || p.community || '');
-    if (communityMap[commIdStr]) {
+    // Community
+    const pCid = String(p.communityId || (typeof p.community === 'object' ? (p.community._id || p.community.id) : p.community) || '');
+    if (communityMap[pCid]) {
       p.community = {
-        _id: communityMap[commIdStr].id || communityMap[commIdStr]._id,
-        name: communityMap[commIdStr].name
+        _id: communityMap[pCid].id || communityMap[pCid]._id,
+        name: communityMap[pCid].name
       };
     }
 
-    try {
-      const likes = await postService.likeRepo.findByPost(p.id || p._id);
-      p.likes = likes.map(l => ({
+    // Likes
+    p.likes = p.likes.map(l => {
+      const lid = String(l.userId || (typeof l.user === 'object' ? (l.user._id || l.user.id) : l.user) || '');
+      const u = userMap[lid];
+      return {
         ...l,
         _id: l.id || l._id,
-        user: l.userId || l.user
-      }));
+        user: u ? { _id: u.id || u._id, firstName: u.firstName, lastName: u.lastName } : lid
+      };
+    });
 
-      const comments = await postService.commentRepo.findByPost(p.id || p._id, { sort: { createdAt: -1 } });
-      p.comments = comments.map(c => ({
+    // Comments
+    p.comments = p.comments.map(c => {
+      const cid = String(c.userId || (typeof c.user === 'object' ? (c.user._id || c.user.id) : (c.user || c.author)) || '');
+      const u = userMap[cid];
+      return {
         ...c,
         _id: c.id || c._id,
-        author: c.author || c.userId || c.user
-      }));
+        author: u ? { _id: u.id || u._id, firstName: u.firstName, lastName: u.lastName } : cid
+      };
+    });
 
-      p.likeCount = likes.length;
-      p.commentCount = comments.length;
-    } catch (e) {
-      console.error("Error populating post sub-items:", e.message);
-    }
+    p.likeCount = p.likes.length;
+    p.commentCount = p.comments.length;
 
     return p;
-  }));
-
-  return populatedPosts;
+  });
 };
 
 
@@ -160,12 +202,22 @@ exports.getPostsByCommunity = async (req, res) => {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     // Fetch posts
     let posts = [];
-    if (req.user.role === 'superadmin' && communityId === 'all') {
-      posts = await postService.postRepo.findRecent({ limit: 50 });
+    let total = 0;
+    const targetCommunityId = communityId === 'all' ? userCommId : communityId;
+
+    if (targetCommunityId) {
+      posts = await postService.getPostsByCommunity(targetCommunityId, { limit, skip });
+      total = await postService.postRepo.countByCommunity(targetCommunityId, { isActive: true });
     } else {
-      posts = await postService.getPostsByCommunity(communityId);
+      // If no community can be determined even for superadmin, return empty list
+      posts = [];
+      total = 0;
     }
 
     // Sync logic removed/deprecated as we now rely on query-time population
@@ -176,6 +228,10 @@ exports.getPostsByCommunity = async (req, res) => {
     return res.status(200).json({
       success: true,
       statusCode: 200,
+      total,
+      page,
+      limit,
+      count: populatedPosts.length,
       data: populatedPosts
     });
   } catch (error) {
@@ -261,7 +317,7 @@ exports.updatePost = async (req, res) => {
       });
     }
 
-    const updated = await postService.updatePost(id, req.body, req.user.id); // Validations inside service might differ slightly, but we did checks here.
+    const updated = await postService.updatePost(id, req.body, req.user.id, (isSuperAdmin || isCommunityAdmin));
 
     return res.status(200).json({
       success: true,
@@ -270,6 +326,14 @@ exports.updatePost = async (req, res) => {
       data: updated
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        statusCode: error.status,
+        message: "Error updating post",
+        error: error.message
+      });
+    }
     return res.status(500).json({
       success: false,
       statusCode: 500,
@@ -308,7 +372,7 @@ exports.deletePost = async (req, res) => {
       });
     }
 
-    await postService.deletePost(id, req.user.id, true); // true for 'isAdmin' bypass of internal check as we checked manually
+    await postService.deletePost(id, req.user.id, (isSuperAdmin || isCommunityAdmin));
 
     return res.status(200).json({
       success: true,
@@ -316,6 +380,14 @@ exports.deletePost = async (req, res) => {
       message: "Post deleted successfully",
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        statusCode: error.status,
+        message: "Error deleting post",
+        error: error.message,
+      });
+    }
     return res.status(500).json({
       success: false,
       statusCode: 500,

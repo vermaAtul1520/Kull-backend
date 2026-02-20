@@ -48,7 +48,9 @@ class SportsEventController {
     getAllSportsEvents = async (req, res, next) => {
         try {
             let events = [];
+            const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
+            const skip = (page - 1) * limit;
 
             if (!req.user.community && !req.user.isSuperAdmin) {
                 return res.status(403).json({ success: false, message: "Community access required" });
@@ -75,13 +77,15 @@ class SportsEventController {
                 } else if (filterCommunity) {
                     commId = filterCommunity;
                 } else {
-                    return res.status(200).json({ success: true, count: 0, data: [] });
+                    commId = req.user.community;
                 }
             }
 
             if (typeof commId === 'object') commId = commId._id.toString();
 
-            events = await sportsEventService.getSportsEventsByCommunity(commId, { limit });
+            const options = { limit, skip };
+            events = await sportsEventService.getSportsEventsByCommunity(commId, options);
+            const total = await sportsEventService.sportsEventRepo.countByCommunity(commId);
 
             // Convert to objects and add attachment alias for UI
             events = events.map(e => {
@@ -93,7 +97,14 @@ class SportsEventController {
             // Populate
             await this.populateEvents(events);
 
-            res.status(200).json({ success: true, count: events.length, data: events });
+            res.status(200).json({
+                success: true,
+                total,
+                page,
+                limit,
+                count: events.length,
+                data: events
+            });
         } catch (err) {
             next(err);
         }

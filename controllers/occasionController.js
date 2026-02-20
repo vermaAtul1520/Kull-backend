@@ -112,15 +112,18 @@ class OccasionController {
 
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
         const { community } = req.query;
-        if (community) {
+        const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+        const targetCommunity = community || userCommId;
+
+        if (targetCommunity) {
           // Super admin querying a specific community
-          communityId = community;
+          communityId = targetCommunity;
           docs = await occasionService.getOccasionsByCommunity(communityId, { limit, skip, filters });
           total = await occasionService.occasionRepo.countByCommunity(communityId, filters);
         } else {
-          // Super admin querying across all communities
-          docs = await occasionService.occasionRepo.find(filters, { limit, skip });
-          total = await occasionService.occasionRepo.count(filters);
+          // No community specified even for superadmin, return empty to prevent global scan
+          docs = [];
+          total = 0;
         }
       } else {
         // Community admin or regular user
