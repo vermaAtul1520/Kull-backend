@@ -221,18 +221,107 @@ class DashboardService {
             timestamp: new Date().toISOString(),
         };
 
-        // User counts
-        const [
-            totalUsers,
-            pendingUsers,
-            approvedUsers,
-            rejectedUsers,
-        ] = await Promise.all([
-            this.userRepo.countByCommunity(communityId),
-            this.userRepo.countByCommunity(communityId, { communityStatus: 'pending' }),
-            this.userRepo.countByCommunity(communityId, { communityStatus: 'approved' }),
-            this.userRepo.countByCommunity(communityId, { communityStatus: 'rejected' }),
-        ]);
+        let totalUsers = 0, pendingUsers = 0, approvedUsers = 0, rejectedUsers = 0;
+        let roleBreakdown = {};
+        let monthlyGrowthMap = {};
+        let monthlyGrowth = [];
+        let recentUsers = [];
+        let communityInfo;
+
+        if (this.userRepo.isDynamoDB()) {
+            // DynamoDB: Fetch once to save memory and avoid timeout from 6 concurrent index scans
+            const [fetchedCommunityInfo, allUsers] = await Promise.all([
+                this.communityRepo.findById(communityId),
+                this.userRepo.findByCommunity(communityId)
+            ]);
+
+            communityInfo = fetchedCommunityInfo;
+            totalUsers = allUsers.length;
+
+            for (const user of allUsers) {
+                const status = user.communityStatus || 'pending';
+                if (status === 'pending') pendingUsers++;
+                else if (status === 'approved') approvedUsers++;
+                else if (status === 'rejected') rejectedUsers++;
+
+                const role = user.roleInCommunity || 'member';
+                roleBreakdown[role] = (roleBreakdown[role] || 0) + 1;
+
+                if (user.createdAt) {
+                    const d = new Date(user.createdAt);
+                    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                    monthlyGrowthMap[key] = (monthlyGrowthMap[key] || 0) + 1;
+                }
+            }
+
+            // Sort for recent users
+            const sortedUsers = [...allUsers].sort((a, b) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB - dateA;
+            });
+
+            // Sanitize recent users
+            recentUsers = sortedUsers.slice(0, 5).map(u => ({
+                _id: u._id || u.id,
+                firstName: u.firstName,
+                lastName: u.lastName,
+                email: u.email,
+                phone: u.phone,
+                communityStatus: u.communityStatus,
+                createdAt: u.createdAt
+            }));
+
+        } else {
+            // MongoDB: Rely on DB counts
+            const [
+                fetchedTotal, fetchedPending, fetchedApproved, fetchedRejected,
+                fetchedCommunityInfo, fetchedRecentUsers, usersForAggregation
+            ] = await Promise.all([
+                this.userRepo.countByCommunity(communityId),
+                this.userRepo.countByCommunity(communityId, { communityStatus: 'pending' }),
+                this.userRepo.countByCommunity(communityId, { communityStatus: 'approved' }),
+                this.userRepo.countByCommunity(communityId, { communityStatus: 'rejected' }),
+                this.communityRepo.findById(communityId),
+                this.userRepo.findByCommunity(communityId, { limit: 5, sort: { createdAt: -1 } }),
+                this.userRepo.findByCommunity(communityId) // Fetch all for aggregation (roleBreakdown/monthlyGrowth)
+            ]);
+
+            totalUsers = fetchedTotal;
+            pendingUsers = fetchedPending;
+            approvedUsers = fetchedApproved;
+            rejectedUsers = fetchedRejected;
+            communityInfo = fetchedCommunityInfo;
+
+            recentUsers = fetchedRecentUsers.map(u => ({
+                _id: u._id || u.id,
+                firstName: u.firstName,
+                lastName: u.lastName,
+                email: u.email,
+                phone: u.phone,
+                communityStatus: u.communityStatus,
+                createdAt: u.createdAt
+            }));
+
+            for (const user of usersForAggregation) {
+                const role = user.roleInCommunity || 'member';
+                roleBreakdown[role] = (roleBreakdown[role] || 0) + 1;
+
+                if (user.createdAt) {
+                    const d = new Date(user.createdAt);
+                    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                    monthlyGrowthMap[key] = (monthlyGrowthMap[key] || 0) + 1;
+                }
+            }
+        }
+
+        monthlyGrowth = Object.entries(monthlyGrowthMap).map(([key, count]) => {
+            const [year, month] = key.split('-').map(Number);
+            return { _id: { year, month }, count };
+        }).sort((a, b) => {
+            if (a._id.year !== b._id.year) return b._id.year - a._id.year;
+            return b._id.month - a._id.month;
+        });
 
         // Content counts
         const [
@@ -263,12 +352,6 @@ class DashboardService {
             this.occasionRepo.countByCommunity(communityId),
         ]);
 
-        // Community info and recent users
-        const [communityInfo, recentUsers] = await Promise.all([
-            this.communityRepo.findById(communityId),
-            this.userRepo.findByCommunity(communityId, { limit: 5 }),
-        ]);
-
         systemHealth.responseTime = `${Date.now() - startTime}ms`;
 
         return {
@@ -278,6 +361,8 @@ class DashboardService {
             userStats: {
                 total: totalUsers,
                 statusBreakdown: { pending: pendingUsers, approved: approvedUsers, rejected: rejectedUsers },
+                roleBreakdown,
+                monthlyGrowth
             },
             contentStats: {
                 totalPosts,

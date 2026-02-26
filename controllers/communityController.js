@@ -145,11 +145,6 @@ class CommunityController {
         }
         delete userObj.plainTextPassword;
 
-        // Issue 6: Show occupation instead of position
-        if (userObj.occupation) {
-          userObj.positionInCommunity = userObj.occupation;
-        }
-
         return userObj;
       });
 
@@ -219,6 +214,7 @@ class CommunityController {
   addUserByAdmin = async (req, res, next) => {
     try {
       const { user: adminUser } = req;
+      const { communityId } = req.params;
       const userData = req.body;
 
       // Authorization
@@ -227,7 +223,7 @@ class CommunityController {
       }
 
       // Delegate to UserService
-      const { user: newUser, plainPassword } = await userService.createUserByAdmin(userData, adminUser);
+      const { user: newUser, plainPassword } = await userService.createUserByAdmin(userData, adminUser, communityId);
 
       // Send Email
       if (newUser.email || newUser.phone) {

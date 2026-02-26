@@ -158,12 +158,25 @@ exports.assignCommunityToUser = async (req, res) => {
 
 exports.getPendingUsers = async (req, res) => {
   try {
-    // Determine target community
+    const isSuperAdmin = req.user.role === 'superadmin';
     const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
-    const targetCommunityId = req.query.communityId || userCommId;
 
-    if (!targetCommunityId && req.user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: "Community access denied" });
+    // targetCommunityId priority: query param > user's home community (only for non-superadmins)
+    let targetCommunityId = req.query.communityId;
+
+    if (!targetCommunityId && !isSuperAdmin) {
+      targetCommunityId = userCommId;
+    }
+
+    // Security check for non-superadmins
+    if (!isSuperAdmin) {
+      if (!targetCommunityId) {
+        return res.status(403).json({ success: false, message: "Community access required" });
+      }
+      // Community admins can only see their own community
+      if (req.user.roleInCommunity === 'admin' && targetCommunityId !== userCommId) {
+        return res.status(403).json({ success: false, message: "Access denied to other communities" });
+      }
     }
 
     const page = parseInt(req.query.page) || 1;
@@ -173,14 +186,12 @@ exports.getPendingUsers = async (req, res) => {
     // Fetch users with status 'pending'
     let query = { communityStatus: 'pending' };
 
-    // Always restrict to a community unless superadmin explicitly wants all (global pending users view is generally not needed in this app)
+    // Filter by community if specified (or if restricted by role)
     if (targetCommunityId) {
       query.communityId = targetCommunityId;
-    } else if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: "Community access required" });
     }
 
-    const pendingUsers = await userService.userRepo.find(query, { limit, skip });
+    const pendingUsers = await userService.userRepo.find(query, { limit, skip, sort: { createdAt: -1 } });
     const total = await userService.userRepo.count(query);
 
     const sanitizedUsers = pendingUsers.map(user => userService.sanitizeUser(user));
@@ -351,8 +362,14 @@ exports.familyTreeSearch = async (req, res) => {
     const { search } = req.query;
     if (!search) return res.status(400).json({ success: false, message: "Search term required" });
 
-    const communityId = req.user.community;
-    const users = await userService.searchUsers(search, communityId);
+    const communityId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+
+    // Safety check: if not superadmin, communityId is mandatory
+    if (req.user.role !== 'superadmin' && !communityId) {
+      return res.status(403).json({ success: false, message: "Community isolation error: No community assigned" });
+    }
+
+    const users = await userService.searchCommunityUsers(communityId, { search: search }, { limit: 50 });
 
     // Filter result
     const filtered = users.filter(u =>

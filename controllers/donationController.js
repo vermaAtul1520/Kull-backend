@@ -131,7 +131,7 @@ exports.getDonationById = async (req, res) => {
     }
 
     // Authorization: Non-superadmin users can only view their community's donations
-    const donationCommId = String(donation.communityId);
+    const donationCommId = String(donation.communityId || donation.community);
     const userCommId = community ? (community._id || community.id) : null;
     if (role !== 'superadmin' && donationCommId !== String(userCommId)) {
       return res.status(403).json({
@@ -148,7 +148,7 @@ exports.getDonationById = async (req, res) => {
     const populated = {
       ...donation,
       createdBy: user ? { firstName: user.firstName, lastName: user.lastName } : donation.createdBy,
-      communityId: comm ? { name: comm.name } : donation.communityId
+      communityId: comm ? { name: comm.name } : (donation.communityId || donation.community)
     };
 
     return res.status(200).json({
@@ -185,7 +185,7 @@ exports.updateDonation = async (req, res) => {
     // Authorization check
     const isSuperAdmin = role === 'superadmin';
     const userCommId = community ? (community._id || community.id) : null;
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(donation.communityId) === String(userCommId);
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(donation.communityId || donation.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -230,7 +230,7 @@ exports.deleteDonation = async (req, res) => {
 
     const isSuperAdmin = role === 'superadmin';
     const userCommId = community ? (community._id || community.id) : null;
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(donation.communityId) === String(userCommId);
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(donation.communityId || donation.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({

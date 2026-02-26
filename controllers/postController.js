@@ -587,7 +587,19 @@ exports.deleteComment = async (req, res) => {
     const commentUserId = comment.user || comment.userId || comment.author;
     const isAuthor = String(commentUserId) === String(userId);
     const isSuperAdmin = req.user.role === 'superadmin';
-    const isCommunityAdmin = req.user.roleInCommunity === 'admin'; // Might need to check community match if rigorous
+
+    let isCommunityAdmin = false;
+    if (req.user.roleInCommunity === 'admin') {
+      const postId = comment.post || comment.postId;
+      const post = await postService.postRepo.findById(postId);
+      if (post) {
+        const postCommId = String(post.communityId || post.community);
+        const userCommId = String(req.user.community._id || req.user.community.id || req.user.community);
+        if (postCommId === userCommId) {
+          isCommunityAdmin = true;
+        }
+      }
+    }
 
     if (!isAuthor && !isSuperAdmin && !isCommunityAdmin) {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this comment' });

@@ -61,7 +61,7 @@ exports.updateNews = async (req, res, next) => {
     // Authorization: Community admin can only update their community's news
     const isSuperAdmin = role === 'superadmin';
     const userCommId = community ? (community._id || community.id) : null;
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.community) === String(userCommId);
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.communityId || news.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({
@@ -107,7 +107,7 @@ exports.deleteNews = async (req, res, next) => {
     // Authorization: Community admin can only delete their community's news
     const isSuperAdmin = role === 'superadmin';
     const userCommId = community ? (community._id || community.id) : null;
-    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.community) === String(userCommId);
+    const isCommunityAdminAndOwn = roleInCommunity === 'admin' && String(news.communityId || news.community) === String(userCommId);
 
     if (!(isSuperAdmin || isCommunityAdminAndOwn)) {
       return res.status(403).json({

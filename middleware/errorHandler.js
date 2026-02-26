@@ -230,22 +230,28 @@ const notFound = (req, res, next) => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
-    console.error('UNHANDLED PROMISE REJECTION! 💥 Shutting down...');
+    console.error('UNHANDLED PROMISE REJECTION! 💥');
     console.error('Error:', err.message);
-    console.error('Stack:', err.stack);
+    if (err.stack) console.error('Stack:', err.stack);
 
-    // Close server gracefully
-    process.exit(1);
+    // In AWS Lambda, we should NOT process.exit() because it crashes the container
+    // and returns a 502 without CORS headers.
+    if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+        process.exit(1);
+    }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
+    console.error('UNCAUGHT EXCEPTION! 💥');
     console.error('Error:', err.message);
-    console.error('Stack:', err.stack);
+    if (err.stack) console.error('Stack:', err.stack);
 
-    // Exit immediately
-    process.exit(1);
+    // In AWS Lambda, we should NOT process.exit() because it crashes the container
+    // and returns a 502 without CORS headers.
+    if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+        process.exit(1);
+    }
 });
 
 // Handle SIGTERM

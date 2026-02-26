@@ -116,9 +116,13 @@ class UserRepository extends BaseRepository {
 
             if (options.status) {
                 criteria.communityStatus = options.status;
+            } else if (options.communityStatus) {
+                criteria.communityStatus = options.communityStatus;
             }
             if (options.role) {
                 criteria.roleInCommunity = options.role;
+            } else if (options.roleInCommunity) {
+                criteria.roleInCommunity = options.roleInCommunity;
             }
 
             return this.find(criteria, {
@@ -156,9 +160,13 @@ class UserRepository extends BaseRepository {
             // 2. Apply Filters (In-Memory)
             if (options.status) {
                 processedItems = processedItems.filter(u => u.communityStatus === options.status);
+            } else if (options.communityStatus) {
+                processedItems = processedItems.filter(u => u.communityStatus === options.communityStatus);
             }
             if (options.role) {
                 processedItems = processedItems.filter(u => u.roleInCommunity === options.role);
+            } else if (options.roleInCommunity) {
+                processedItems = processedItems.filter(u => u.roleInCommunity === options.roleInCommunity);
             }
 
             // 3. Apply Sort (Default: createdAt desc)
@@ -185,7 +193,11 @@ class UserRepository extends BaseRepository {
     async countByCommunity(communityId, options = {}) {
         if (this.isMongoDB()) {
             const criteria = { community: communityId };
-            if (options.status) criteria.communityStatus = options.status;
+            if (options.status) {
+                criteria.communityStatus = options.status;
+            } else if (options.communityStatus) {
+                criteria.communityStatus = options.communityStatus;
+            }
             return this.count(criteria);
         } else {
             const users = await this.findByCommunity(communityId, options);

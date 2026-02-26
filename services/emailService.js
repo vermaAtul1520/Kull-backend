@@ -28,7 +28,7 @@ if (USE_SENDGRID && SENDGRID_KEY) {
 let sesClient = null;
 if (USE_SES) {
   sesClient = new SESClient({
-    region: process.env.AWS_REGION || 'us-east-1'
+    region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'us-east-1'
   });
   console.log('✅ Email Service: AWS SES initialized');
 }

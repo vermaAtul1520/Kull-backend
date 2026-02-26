@@ -156,29 +156,33 @@ exports.removeFamilyRelationship = async (req, res) => {
 exports.searchUsers = async (req, res) => {
   try {
     const { search } = req.query;
-    const communityId = req.user.community;
+    const communityId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
 
     if (!search) {
       return res.status(400).json({ success: false, message: "Search term is required" });
     }
 
-    const users = await userService.searchUsers(search); // Generalized search
+    if (!communityId) {
+      return res.status(403).json({ success: false, message: "Community is required for family search" });
+    }
 
-    // Filter by community in memory (if search returns cross-community)
-    // and exclude self.
-    const commIdStr = communityId ? (typeof communityId === 'object' ? (communityId._id || communityId.id || communityId).toString() : communityId.toString()) : null;
-
+    // Fetch community users and apply explicit case-insensitive matching in memory.
+    // This keeps behavior identical across MongoDB and DynamoDB.
+    const users = await userService.getUsersByCommunity(communityId, { limit: undefined });
+    const term = String(search).trim().toLowerCase();
     const filtered = users.filter(u => {
-      // Exclude self
-      if ((u.id || u._id).toString() === req.user.id) return false;
-      // If no community filter, include all
-      if (!commIdStr) return true;
-      // Compare community (handle string or object)
-      const uComm = u.community;
-      if (!uComm) return false;
-      const uCommStr = typeof uComm === 'object' ? (uComm._id || uComm.id || uComm).toString() : uComm.toString();
-      return uCommStr === commIdStr;
-    });
+      if ((u.id || u._id).toString() === req.user.id) return false; // Exclude self
+
+      const fields = [
+        u.firstName,
+        u.lastName,
+        u.email,
+        u.phone,
+        u.gotra
+      ];
+
+      return fields.some(value => value && String(value).toLowerCase().includes(term));
+    }).slice(0, 50);
 
     const mapped = filtered.map(u => ({
       _id: u.id || u._id,

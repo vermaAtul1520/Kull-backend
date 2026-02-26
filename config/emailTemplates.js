@@ -308,52 +308,79 @@ const emailTemplates = {
   },
 
   communityAssignment: {
-    subject: 'Welcome to {{communityName}} - KULL Platform',
+    subject: 'Welcome to KULL – Preserve Your Roots, Build Your Future',
     headerGradient: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
     primaryButtonColor: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
     accentColor: '#28a745',
     headerIcon: '🎉',
-    headerTitle: 'Welcome to {{communityName}}!',
-    headerSubtitle: 'You have been added by the admin or super admin in a Kull community',
+    headerTitle: 'Welcome to KULL!',
+    headerSubtitle: 'Preserve Your Roots, Build Your Future',
     content: `
       <div class="status-badge status-success">✅ Account Activated</div>
 
       <div class="greeting">Hello {{firstName}}! 👋</div>
 
       <div class="message">
-        Great news! You have been successfully added to <strong>{{communityName}}</strong> by the community administrator.
-        Your account is now active and ready to use.
+        We warmly welcome you to <strong>KULL</strong> — a platform built not just for connection, but for preserving your identity, your traditions, and your community legacy.
+        KULL is where your past, present, and future come together.
       </div>
 
-      <div class="highlight-box">
-        <div class="highlight-title">Community</div>
-        <div class="highlight-value" style="font-size: 18px; letter-spacing: normal;">{{communityName}}</div>
+      <div class="info-box info">
+        <h3>✨ Preserve Your Traditions & Rituals</h3>
+        <p>Your customs, festivals, values, and rituals define who you are. KULL helps your community preserve and pass them to the next generation — digitally and securely.</p>
       </div>
 
-      <div class="info-box warning">
+      <div class="info-box info">
+        <h3>🌳 Discover Your Community Roots</h3>
+        <p>Know where you come from. Understand your history. Stay connected to your cultural foundation.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>📱 Family Tree at Your Fingertips</h3>
+        <p>With KULL, your entire family tree is just one tap away. Document generations. Honor your ancestors. Strengthen family bonds.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>🤝 Community Donations Made Easy</h3>
+        <p>Collect funds transparently for community needs — whether it’s events, welfare, or emergencies — through KULL’s donation feature.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>📰 Stay Updated with Community News</h3>
+        <p>Get real-time updates about community activities, important announcements, and social initiatives. Never feel disconnected again.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>🏆 Community Sports & Events</h3>
+        <p>KULL helps organize sports tournaments and community events — encouraging unity, youth participation, and healthy engagement.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>🎓 Education & Mentorship</h3>
+        <p>Receive guidance from experienced mentors and top-level officers within your community. Access career guidance, educational pathways, and community-organized classes.</p>
+      </div>
+
+      <div class="info-box info">
+        <h3>🏛 Government Benefits Awareness</h3>
+        <p>KULL informs you about government schemes and benefits available specifically for your community — so no opportunity is missed.</p>
+      </div>
+
+      <div class="message" style="margin-top: 20px; font-weight: bold; border-left: 4px solid #28a745; padding-left: 15px;">
+        More Than an App — A Movement<br/>
+        <span style="font-weight: normal; font-size: 0.9em;">A place where traditions are preserved, families are connected, youth are guided, and communities grow stronger together.</span>
+      </div>
+
+      <div class="info-box warning" style="margin-top: 30px;">
         <h3>🔐 Your Login Credentials</h3>
         <p><strong>Email/Phone:</strong> {{loginIdentifier}}</p>
         <p><strong>Password:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 4px; color: #28a745; font-weight: bold;">{{temporaryPassword}}</code></p>
         <p style="color: #856404; margin-top: 10px;"><strong>⚠️ Important:</strong> Please change your password after your first login for security purposes.</p>
       </div>
 
-      <div class="message">
-        Use these credentials to log in through the mobile app.
-      </div>
-
-      <div class="info-box info">
-        <h3>🚀 What you can do now:</h3>
-        <ul class="feature-list">
-          <li>Access all community content and resources</li>
-          <li>Connect with other community members</li>
-          <li>Participate in discussions and events</li>
-          <li>Update your profile and preferences</li>
-          <li>Receive community notifications</li>
-        </ul>
-      </div>
-
-      <div class="message">
-        If you have any questions or need assistance getting started, please don't hesitate to reach out to your community admin or our support team.
+      <div class="message" style="margin-top: 20px;">
+        With warmth and pride,<br/>
+        <strong>Team KULL</strong><br/>
+        <small>Building Stronger Communities Together</small>
       </div>
     `,
     footerText: 'Need help? Contact support at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>'

@@ -168,7 +168,7 @@ class BaseRepository {
             // DynamoDB: Generic scan - should be overridden for efficient queries
             // Use _scanAll to handle multiple pages of results automatically
             const normalizedCriteria = this._normalizeCriteria(criteria);
-            const items = await this._scanAll(this.tableName, {
+            let items = await this._scanAll(this.tableName, {
                 filterExpression: Object.keys(normalizedCriteria).length > 0
                     ? this._buildFilterExpression(normalizedCriteria)
                     : undefined,
@@ -179,6 +179,31 @@ class BaseRepository {
                     ? this._buildExpressionNames(normalizedCriteria)
                     : undefined
             });
+
+            // Apply in-memory sort if requested
+            if (options.sort) {
+                const sortField = Object.keys(options.sort)[0];
+                const sortOrder = options.sort[sortField]; // 1 for asc, -1 for desc
+
+                items.sort((a, b) => {
+                    const valA = a[sortField];
+                    const valB = b[sortField];
+
+                    if (valA === valB) return 0;
+                    if (valA === undefined || valA === null) return 1;
+                    if (valB === undefined || valB === null) return -1;
+
+                    if (typeof valA === 'string' && typeof valB === 'string') {
+                        return sortOrder === 1
+                            ? valA.localeCompare(valB)
+                            : valB.localeCompare(valA);
+                    }
+
+                    return sortOrder === 1
+                        ? (valA < valB ? -1 : 1)
+                        : (valA < valB ? 1 : -1);
+                });
+            }
 
             const limit = options.limit || items.length;
             const skip = options.skip || 0;

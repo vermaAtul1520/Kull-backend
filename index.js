@@ -56,6 +56,21 @@ initDb().catch(err => {
 
 const app = express();
 
+// Disable ETags to prevent 304 responses when data hasn't changed
+// This ensures that fresh data is always sent
+app.set("etag", false);
+
+// Global Cache-Control for all API routes
+app.use("/api", (req, res, next) => {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+  next();
+});
+
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 mins
@@ -66,7 +81,9 @@ const limiter = rateLimit({
 app.set("trust proxy", 1); // For rate limiter behind proxy
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 
 app.use(cors({

@@ -34,7 +34,7 @@ Resources:
         - 'application/pdf'
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Cache-Control,Pragma,Expires,X-Requested-With'"
         AllowOrigin: "'*'"
         AllowCredentials: false
 
@@ -68,6 +68,7 @@ Resources:
           
           # Email Configuration
           USE_AWS_SES: True
+          AWS_SES_REGION: us-east-1
           SES_FROM_EMAIL: kullofficial01@gmail.com
           USE_SENDGRID: False
           SENDGRID_API_KEY: ""
@@ -75,7 +76,7 @@ Resources:
           EMAIL_PASS: ""
           EMAIL_FROM_ADDRESS: ""
           EMAIL_FROM_NAME: "KULL Platform"
-          SUPER_ADMIN_EMAIL: atulverma1520@gmail.com
+          SUPER_ADMIN_EMAIL: kullofficial01@gmail.com
           SUPPORT_EMAIL: kullofficial01@gmail.com
           
           # External APIs

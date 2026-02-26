@@ -151,7 +151,7 @@ class UserService {
     /**
      * Create user by admin
      */
-    async createUserByAdmin(userData, adminUser) {
+    async createUserByAdmin(userData, adminUser, communityIdFromParams = null) {
         // Validate basic fields
         if (!userData.firstName || !userData.lastName) {
             throw { status: 400, message: "First name and last name are required" };
@@ -163,6 +163,13 @@ class UserService {
             throw { status: 400, message: "Password is required" };
         }
 
+        // Sanitize empty strings to avoid DynamoDB marshalling issues (convert to undefined to allow removal)
+        Object.keys(userData).forEach(key => {
+            if (userData[key] === "") {
+                userData[key] = undefined;
+            }
+        });
+
         // Check duplicates
         const checkPromises = [];
         if (userData.email) checkPromises.push(this.userRepo.findByEmail(userData.email));
@@ -170,19 +177,34 @@ class UserService {
 
         const existingUsers = await Promise.all(checkPromises);
         if (existingUsers.some(u => u)) {
-            throw { status: 400, message: 'User with this email or phone already exists' };
+            // Check if email or phone is truly a duplicate (ignore empty strings)
+            const duplicate = existingUsers.find(u => u && (
+                (userData.email && u.email === userData.email.toLowerCase()) ||
+                (userData.phone && u.phone === userData.phone)
+            ));
+            if (duplicate) {
+                throw { status: 400, message: 'User with this email or phone already exists' };
+            }
         }
 
         const plainPassword = userData.password;
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-        // Determine community
-        let communityId = null;
+        // Determine community assignment with priority:
+        // 1. Explicitly passed communityId from URL
+        // 2. Passed in userData body
+        // 3. Admin's own community (if community admin)
+        let communityId = communityIdFromParams || userData.community;
+
         if (adminUser.role === 'superadmin') {
-            communityId = userData.community; // Passed in body or params
+            // Superadmin can specify community in URL or body
         } else if (adminUser.roleInCommunity === 'admin') {
-            communityId = adminUser.community;
+            // Community admin is restricted to their own community unless specified in URL (which should match anyway via middleware if scoped)
+            communityId = communityId || adminUser.community;
         }
+
+        // Normalize to string ID
+        communityId = (communityId?._id || communityId?.id || communityId)?.toString();
 
         if (!communityId) {
             throw { status: 400, message: "Community assignment is required" };
