@@ -103,6 +103,19 @@ const TABLE_DEFINITIONS = {
     },
 
     // ==========================================
+    // GLOBAL APP CONFIGURATIONS TABLE
+    // ==========================================
+    'app-config': {
+        TableName: 'app-config',
+        KeySchema: [
+            { AttributeName: 'key', KeyType: 'HASH' }
+        ],
+        AttributeDefinitions: [
+            { AttributeName: 'key', AttributeType: 'S' },
+        ],
+        BillingMode: 'PAY_PER_REQUEST'
+    },
+    // ==========================================
     // POSTS TABLE
     // Partition by community for efficient queries
     // ==========================================

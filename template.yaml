@@ -136,6 +136,8 @@ Resources:
             TableName: !Sub kull-${Stage}-likes
         - DynamoDBCrudPolicy:
             TableName: !Sub kull-${Stage}-occasion-contents
+        - DynamoDBCrudPolicy:
+            TableName: !Sub kull-${Stage}-app-config
         - Statement:
             - Effect: Allow
               Action:

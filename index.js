@@ -29,6 +29,7 @@ const occasionRoutes = require("./routes/occasionRoutes");
 const occasionCategoryRoutes = require("./routes/occasionCategoryRoutes");
 const familyRoutes = require("./routes/familyRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const appConfigRoutes = require("./routes/appConfigRoutes");
 
 // MongoDB connection (legacy - used when DB_TYPE=mongodb)
 const connectDB = require("./config/database");
@@ -117,6 +118,7 @@ app.use("/api/occasions", occasionRoutes);
 app.use("/api/occasion-categories", occasionCategoryRoutes);
 app.use("/api/family", familyRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/app-config", appConfigRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {
@@ -156,6 +158,7 @@ app.get("/api", (req, res) => {
       occasionCategories: "/api/occasion-categories",
       family: "/api/family",
       upload: "/api/upload",
+      appConfig: "/api/app-config",
     },
   });
 });
