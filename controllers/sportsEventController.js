@@ -48,9 +48,14 @@ class SportsEventController {
     getAllSportsEvents = async (req, res, next) => {
         try {
             let events = [];
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
-            const skip = (page - 1) * limit;
+            const parsedFilter = req.parsedQuery?.filter || {};
+            const queryObj = { ...req.query, ...parsedFilter };
+
+            const { sort, limit, skip, page } = req.parsedQuery || {};
+            const queryLimit = limit || 20;
+            const querySkip = skip || 0;
+
+            const filter = { ...parsedFilter };
 
             if (!req.user.community && !req.user.isSuperAdmin) {
                 return res.status(403).json({ success: false, message: "Community access required" });
@@ -58,32 +63,15 @@ class SportsEventController {
 
             let commId = req.user.community;
 
-            // Extract from parsedQuery (populated by middleware) or manual query
-            const parsedCommunity = req.parsedQuery?.filter?.community;
-            let filterCommunity = null;
-
-            if (req.query.filter) {
-                try {
-                    const parsed = JSON.parse(req.query.filter);
-                    filterCommunity = parsed.community;
-                } catch (e) { }
-            }
-
             if (req.user.isSuperAdmin) {
-                if (req.query.community) {
-                    commId = req.query.community;
-                } else if (parsedCommunity) {
-                    commId = parsedCommunity;
-                } else if (filterCommunity) {
-                    commId = filterCommunity;
-                } else {
-                    commId = req.user.community;
-                }
+                const community = queryObj.community;
+                const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
+                commId = community || userCommId;
             }
 
-            if (typeof commId === 'object') commId = commId._id.toString();
+            if (typeof commId === 'object' && commId !== null) commId = commId._id ? commId._id.toString() : String(commId);
 
-            const options = { limit, skip };
+            const options = { limit: queryLimit, skip: querySkip, filters: filter };
             events = await sportsEventService.getSportsEventsByCommunity(commId, options);
             const total = await sportsEventService.sportsEventRepo.countByCommunity(commId);
 

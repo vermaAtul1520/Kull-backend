@@ -33,6 +33,19 @@ class S3Service {
 
         return { uploadUrl, key, fileName };
     }
+    /**
+     * Generate presigned URLs for uploading multiple files
+     * @param {Array<{fileName: string, fileType: string}>} files 
+     * @returns {Promise<Array<{uploadUrl: string, key: string, fileName: string}>>}
+     */
+    async getBulkPresignedUrls(files) {
+        if (!Array.isArray(files) || files.length === 0) {
+            return [];
+        }
+
+        const promises = files.map(file => this.getPresignedUrl(file.fileName, file.fileType));
+        return Promise.all(promises);
+    }
 }
 
 module.exports = new S3Service();

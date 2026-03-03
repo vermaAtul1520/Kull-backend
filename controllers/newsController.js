@@ -153,13 +153,18 @@ exports.getCommunityNews = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
+    const filters = {};
+    if (req.query.category && req.query.category !== 'undefined') {
+      filters.category = { $regex: req.query.category, $options: 'i' };
+    }
+
     let newsList = [];
     let total = 0;
     const targetCommunityId = communityId === 'all' ? userCommId : communityId;
 
     if (targetCommunityId) {
-      newsList = await newsService.getNewsByCommunity(targetCommunityId, { limit, skip });
-      total = await newsService.newsRepo.countByCommunity(targetCommunityId);
+      newsList = await newsService.getNewsByCommunity(targetCommunityId, { limit, skip, filters });
+      total = await newsService.newsRepo.countByCommunity(targetCommunityId, filters);
     } else {
       newsList = [];
       total = 0;

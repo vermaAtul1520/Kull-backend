@@ -39,13 +39,27 @@ class KartavyaController {
   getAllKartavyas = async (req, res, next) => {
     try {
       let kartavyas = [];
-      const { filter, sort, limit, skip, page } = req.parsedQuery || {};
+      const parsedFilter = req.parsedQuery?.filter || {};
+      const queryObj = { ...req.query, ...parsedFilter };
+
+      const { sort, limit, skip, page } = req.parsedQuery || {};
       const queryLimit = limit || 20;
       const querySkip = skip || 0;
 
+      // Ensure 'filter' for the repository contains the correct category logic
+      const filter = { ...parsedFilter };
+
+      const { category, categoryId } = queryObj;
+      const finalCategoryId = categoryId || category;
+      if (finalCategoryId && finalCategoryId !== 'undefined') {
+        filter.category = { $regex: finalCategoryId, $options: 'i' };
+        // In case categoryId was used but 'category' is the DB field
+        if (filter.categoryId) delete filter.categoryId;
+      }
+
       let total = 0;
       if (req.user.isSuperAdmin && !req.user.isCommunityAdmin) {
-        const { community } = req.query;
+        const community = queryObj.community;
         const userCommId = (req.user.community?._id || req.user.community?.id || req.user.community)?.toString();
         const targetCommunity = community || userCommId;
 

@@ -17,11 +17,13 @@ router.get(
       "title",
       "organizer",
       "type",
+      "categoryId",
       "documentType",
       "meetingDate",
       "community",
       "createdBy",
       "createdAt",
+      "isFeatured"
     ],
     allowSortFields: ["title", "organizer", "meetingDate", "documentType", "createdAt"],
     maxLimit: 50,

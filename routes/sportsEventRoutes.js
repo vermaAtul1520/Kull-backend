@@ -18,6 +18,7 @@ router.get(
             "organizer",
             "location",
             "category",
+            "categoryId",
             "type",
             "eventType",
             "eventDate",
@@ -25,6 +26,7 @@ router.get(
             "community",
             "createdBy",
             "createdAt",
+            "isFeatured"
         ],
         allowSortFields: ["title", "organizer", "location", "eventDate", "category", "eventType", "createdAt"],
         maxLimit: 50,

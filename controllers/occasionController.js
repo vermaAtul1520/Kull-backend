@@ -87,22 +87,26 @@ class OccasionController {
       // Filter based on user role and community
       let communityId = null;
 
-      // Extract filters
+      // Extract filters from both req.query and req.parsedQuery.filter (if sent as JSON)
+      const queryObj = { ...req.query, ...(req.parsedQuery?.filter || {}) };
+
       const {
         occasionType, category, categoryId, gotra, subGotra, gender, isFeatured
-      } = req.query;
+      } = queryObj;
 
       const filters = {};
       if (occasionType && occasionType !== 'undefined') filters.occasionType = occasionType;
 
       // Handle both category and categoryId naming
       const finalCategoryId = categoryId || category;
-      if (finalCategoryId && finalCategoryId !== 'undefined') filters.categoryId = finalCategoryId;
+      if (finalCategoryId && finalCategoryId !== 'undefined') {
+        filters.categoryId = { $regex: finalCategoryId, $options: 'i' };
+      }
 
       if (gotra && gotra !== 'undefined') filters.gotra = gotra;
       if (subGotra && subGotra !== 'undefined') filters.subGotra = subGotra;
       if (gender && gender !== 'undefined') filters.gender = gender;
-      if (req.query.isFeatured !== undefined) filters.isFeatured = req.query.isFeatured === 'true';
+      if (queryObj.isFeatured !== undefined) filters.isFeatured = queryObj.isFeatured === 'true' || queryObj.isFeatured === true;
 
       let docs = [];
       const page = parseInt(req.query.page) || 1;

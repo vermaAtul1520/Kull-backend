@@ -16,11 +16,13 @@ router.get(
     allowFilterFields: [
       "title",
       "category",
+      "categoryId",
       "filetype",
       "language",
       "community",
       "createdBy",
       "createdAt",
+      "isFeatured"
     ],
     allowSortFields: ["title", "category", "createdAt"],
     maxLimit: 50,

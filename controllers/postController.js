@@ -40,7 +40,7 @@ const populatePosts = async (posts, type = 'list') => {
     if (postAuthorId) userIds.add(String(typeof postAuthorId === 'object' ? (postAuthorId._id || postAuthorId.id) : postAuthorId));
 
     // Post community
-    const commId = p.communityId || p.community?._id || p.community;
+    const commId = p.communityId || p.community?._id || (typeof p.community === 'object' ? p.community?.id : p.community);
     if (commId) communityIds.add(String(typeof commId === 'object' ? (commId._id || commId.id) : commId));
 
     // Like authors
@@ -81,7 +81,7 @@ const populatePosts = async (posts, type = 'list') => {
   // Step 4: Final population
   return postDataArray.map(p => {
     // Post Author
-    const pAid = String(p.authorId || (typeof p.author === 'object' ? (p.author._id || p.author.id) : p.author) || '');
+    const pAid = String(p.authorId || (typeof p.author === 'object' && p.author ? (p.author._id || p.author.id) : p.author) || '');
     if (userMap[pAid]) {
       p.author = {
         _id: userMap[pAid].id || userMap[pAid]._id,
@@ -93,7 +93,7 @@ const populatePosts = async (posts, type = 'list') => {
     }
 
     // Community
-    const pCid = String(p.communityId || (typeof p.community === 'object' ? (p.community._id || p.community.id) : p.community) || '');
+    const pCid = String(p.communityId || (typeof p.community === 'object' && p.community ? (p.community._id || p.community.id) : p.community) || '');
     if (communityMap[pCid]) {
       p.community = {
         _id: communityMap[pCid].id || communityMap[pCid]._id,
@@ -103,7 +103,7 @@ const populatePosts = async (posts, type = 'list') => {
 
     // Likes
     p.likes = p.likes.map(l => {
-      const lid = String(l.userId || (typeof l.user === 'object' ? (l.user._id || l.user.id) : l.user) || '');
+      const lid = String(l.userId || (typeof l.user === 'object' && l.user ? (l.user._id || l.user.id) : l.user) || '');
       const u = userMap[lid];
       return {
         ...l,
@@ -114,7 +114,7 @@ const populatePosts = async (posts, type = 'list') => {
 
     // Comments
     p.comments = p.comments.map(c => {
-      const cid = String(c.userId || (typeof c.user === 'object' ? (c.user._id || c.user.id) : (c.user || c.author)) || '');
+      const cid = String(c.userId || (typeof c.user === 'object' && c.user ? (c.user._id || c.user.id) : (c.user || c.author)) || '');
       const u = userMap[cid];
       return {
         ...c,
@@ -133,7 +133,7 @@ const populatePosts = async (posts, type = 'list') => {
 
 exports.createPost = async (req, res) => {
   try {
-    const { title, content, imageUrl } = req.body;
+    const { title, content, imageUrl, media } = req.body;
     const { communityId } = req.params;
     const { role, community } = req.user;
 
@@ -142,6 +142,23 @@ exports.createPost = async (req, res) => {
         success: false,
         statusCode: 400,
         message: "title and content are required fields.",
+      });
+    }
+
+    // Validate media array if provided
+    if (media && !Array.isArray(media)) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        message: "media must be an array of objects.",
+      });
+    }
+
+    if (media && media.length > 10) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        message: "Maximum 10 media items allowed per post.",
       });
     }
 
@@ -164,10 +181,21 @@ exports.createPost = async (req, res) => {
       });
     }
 
+    // Backwards compatibility: Wrap existing imageUrl into the new media array if standalone imageUrl is sent
+    let finalMedia = media || [];
+    if (!media || media.length === 0) {
+      if (imageUrl) {
+        // Simple logic to attempt to infer video vs image from extension
+        const isVideo = imageUrl.toLowerCase().match(/\.(mp4|mov|avi|wmv|flv|webm)$/);
+        finalMedia = [{ url: imageUrl, mediaType: isVideo ? 'video' : 'image' }];
+      }
+    }
+
     const post = await postService.createPost({
       title,
       content,
-      imageUrl,
+      imageUrl: finalMedia.length > 0 ? finalMedia[0].url : null, // Store first URL as primary imageUrl for backward compatibility with older DB queries
+      media: finalMedia,
       // isActive: true // Service defaults this
     }, req.user.id, communityId);
 

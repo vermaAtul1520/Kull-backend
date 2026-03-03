@@ -33,12 +33,14 @@ router.get(
     allowFilterFields: [
       "occasionType",
       "category",
+      "categoryId",
       "gender",
       "gotra",
       "subGotra",
       "community",
       "createdBy",
       "createdAt",
+      "isFeatured"
     ],
     allowSortFields: ["occasionType", "category", "createdAt"],
     maxLimit: 50,

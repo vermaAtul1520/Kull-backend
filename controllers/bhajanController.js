@@ -140,7 +140,9 @@ class CommunityBhajansController {
       const skip = (page - 1) * limit;
 
       const options = { limit, skip, filters: {} };
-      if (req.query.category) options.filters.category = req.query.category;
+      if (req.query.category && req.query.category !== 'undefined') {
+        options.filters.category = { $regex: req.query.category, $options: 'i' };
+      }
 
       const bhajans = await bhajanService.getBhajansByCommunity(communityId, options);
       const total = await bhajanService.bhajanRepo.countByCommunity(communityId, options.filters);
