@@ -2,7 +2,7 @@ const { CommunityEntityRepository } = require('./CommunityEntityRepository');
 
 class OccasionCategoryRepository extends CommunityEntityRepository {
     constructor() {
-        super('OccasionCategory', 'occasion-categories', 'communityId');
+        super('OccasionCategory', 'occasion-categories', 'communityId', 'id');
     }
 
     async findByNameAndType(name, occasionType, communityId) {
@@ -24,7 +24,7 @@ class OccasionCategoryRepository extends CommunityEntityRepository {
                 },
                 limit: 1
             });
-            return result.items[0];
+            return this._transformResult(result.items[0]);
         }
     }
 }

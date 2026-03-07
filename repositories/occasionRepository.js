@@ -117,6 +117,7 @@ class OccasionRepository extends CommunityEntityRepository {
                 ...options,
                 sort: { date: 1 }
             });
+        } else {
             const startSk = generateSortKey(now, '');
 
             let allItems = [];
@@ -193,7 +194,8 @@ class OccasionRepository extends CommunityEntityRepository {
             delete item.community;
             // delete item.category; // Don't delete, keep it for legacy support
 
-            return this.getDb().putItem(this.tableName, item);
+            const createdItem = await this.getDb().putItem(this.tableName, item);
+            return this._transformResult(createdItem);
         }
     }
 }

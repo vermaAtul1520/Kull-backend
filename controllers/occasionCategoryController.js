@@ -96,6 +96,9 @@ class OccasionCategoryController {
   // Update
   updateCategory = async (req, res, next) => {
     try {
+      if (req.params.id === 'undefined') {
+        return res.status(400).json({ success: false, message: "Invalid category ID: 'undefined' was passed. Check frontend data binding." });
+      }
       const category = await occasionService.getCategoryById(req.params.id);
       if (!category) return res.status(404).json({ success: false, message: "Not found" });
 
@@ -129,6 +132,9 @@ class OccasionCategoryController {
   // Delete
   deleteCategory = async (req, res, next) => {
     try {
+      if (req.params.id === 'undefined') {
+        return res.status(400).json({ success: false, message: "Invalid category ID: 'undefined' was passed. Check frontend data binding." });
+      }
       const category = await occasionService.getCategoryById(req.params.id);
       if (!category) return res.status(404).json({ success: false, message: "Not found" });
 

@@ -14,9 +14,10 @@ class CommunityEntityRepository extends BaseRepository {
      * @param {string} tableName - DynamoDB table name
      * @param {string} communityField - Field name for community reference (default: 'communityId')
      */
-    constructor(entityName, tableName, communityField = 'communityId') {
+    constructor(entityName, tableName, communityField = 'communityId', rangeKey = 'sk') {
         super(entityName, tableName);
         this.communityField = communityField;
+        this.rangeKey = rangeKey;
     }
 
     /**
@@ -41,10 +42,11 @@ class CommunityEntityRepository extends BaseRepository {
             } catch (error) {
                 // Fallback for tables without id-index (like occasion-categories)
                 if (error.name === 'ValidationException' || error.message.includes('index')) {
+                    // Public findById: Return transformed first result from scan
                     const result = await this.getDb().scan(this.tableName, {
-                        filterExpression: 'id = :id',
+                        filterExpression: '#id = :id',
                         filterValues: { ':id': id },
-                        limit: 1
+                        expressionAttributeNames: { '#id': 'id' }
                     });
                     return this._transformResult(result.items[0]) || null;
                 }
@@ -179,7 +181,7 @@ class CommunityEntityRepository extends BaseRepository {
             // Generate ID and sort key
             const id = this.generateId();
             const createdAt = new Date().toISOString();
-            const sk = generateSortKey(createdAt, id);
+            const rangeKeyVal = this.rangeKey === 'sk' ? generateSortKey(createdAt, id) : id;
 
             // Extract communityId from various possible field names
             let communityId = data.communityId || data.community;
@@ -196,7 +198,7 @@ class CommunityEntityRepository extends BaseRepository {
             const item = {
                 ...data,
                 id,
-                sk,
+                [this.rangeKey]: rangeKeyVal,
                 communityId,
                 createdBy,
                 createdAt
@@ -212,7 +214,8 @@ class CommunityEntityRepository extends BaseRepository {
             // Remove MongoDB-style fields
             delete item.community;
 
-            return this.getDb().putItem(this.tableName, item);
+            const createdItem = await this.getDb().putItem(this.tableName, item);
+            return this._transformResult(createdItem);
         }
     }
 
@@ -234,10 +237,11 @@ class CommunityEntityRepository extends BaseRepository {
             return result.items[0] || null;
         } catch (error) {
             if (error.name === 'ValidationException' || error.message.includes('index')) {
+                // Internal _findByIdRaw: MUST return raw item (untransformed) to preserve communityId/sk for DB ops
                 const result = await this.getDb().scan(this.tableName, {
-                    filterExpression: 'id = :id',
+                    filterExpression: '#id = :id',
                     filterValues: { ':id': id },
-                    limit: 1
+                    expressionAttributeNames: { '#id': 'id' }
                 });
                 return result.items[0] || null;
             }
@@ -258,10 +262,12 @@ class CommunityEntityRepository extends BaseRepository {
             const entity = await this._findByIdRaw(id);
             if (!entity) return null;
 
-            return this.getDb().updateItem(this.tableName, {
+            const updatedItem = await this.getDb().updateItem(this.tableName, {
                 communityId: entity.communityId,
-                sk: entity.sk
+                [this.rangeKey]: entity[this.rangeKey]
             }, updates);
+
+            return this._transformResult(updatedItem);
         }
     }
 
@@ -279,7 +285,7 @@ class CommunityEntityRepository extends BaseRepository {
 
             return this.getDb().deleteItem(this.tableName, {
                 communityId: entity.communityId,
-                sk: entity.sk
+                [this.rangeKey]: entity[this.rangeKey]
             });
         }
     }
