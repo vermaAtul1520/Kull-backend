@@ -101,33 +101,71 @@ class AuthService {
             throw { status: 400, message: 'Email or phone and password are required.' };
         }
 
-        // Find user by email or phone
-        let user = await this.userRepo.findByEmail(emailOrPhone);
-        if (!user) {
-            user = await this.userRepo.findByPhone(emailOrPhone);
+        const normalizedIdentifier = emailOrPhone.trim();
+        const trimmedPassword = password.trim();
+
+        // Find users by email or phone (multiple users can exist with same email)
+        console.log(`[DEBUG] Login attempt for: ${normalizedIdentifier}`);
+        let candidates = await this.userRepo.findAllByEmail(normalizedIdentifier);
+        if (candidates.length === 0) {
+            console.log(`[DEBUG] No users found by email, trying phone...`);
+            candidates = await this.userRepo.findAllByPhone(normalizedIdentifier);
         }
 
-        if (!user) {
+        if (candidates.length === 0) {
+            console.log(`[DEBUG] No users found by email or phone: ${normalizedIdentifier}`);
             throw { status: 401, message: 'Invalid user.' };
         }
 
-        // Get password (may need separate query for password)
-        const userWithPassword = await this.userRepo.findByIdWithPassword(user._id || user.id);
-        if (!userWithPassword || !userWithPassword.password) {
+        console.log(`[DEBUG] Found ${candidates.length} candidates for: ${normalizedIdentifier}`);
+
+        let authenticatedUser = null;
+        let finalCommunityId = null;
+        let matchedButNotApproved = false;
+
+        // Try to authenticate each candidate
+        for (const user of candidates) {
+            console.log(`[DEBUG] Trying candidate: ${user._id || user.id}, role: ${user.role}, community: ${user.community}`);
+
+            // For login, we NEED the password. Some repos might exclude it by default.
+            const userWithPassword = await this.userRepo.findByIdWithPassword(user._id || user.id);
+
+            if (!userWithPassword || !userWithPassword.password) {
+                console.log(`[DEBUG] Candidate ${user._id || user.id} missing password field`);
+                continue;
+            }
+
+            // Compare passwords
+            const isMatch = await bcrypt.compare(trimmedPassword, userWithPassword.password);
+            console.log(`[DEBUG] Password match result for ${user._id || user.id}: ${isMatch}`);
+
+            if (isMatch) {
+                // Check if user is approved (unless superadmin)
+                const communityId = user.community || user.communityId;
+                const isSuperAdmin = user.role === 'superadmin';
+                const isApproved = user.communityStatus === 'approved';
+
+                if (isSuperAdmin || isApproved) {
+                    authenticatedUser = user;
+                    finalCommunityId = communityId;
+                    break; // Success!
+                } else {
+                    matchedButNotApproved = true;
+                    console.log(`[DEBUG] Candidate ${user._id || user.id} matches password but is not approved (status: ${user.communityStatus})`);
+                }
+            }
+        }
+
+        if (!authenticatedUser) {
+            console.log(`[DEBUG] No candidates matched for: ${normalizedIdentifier}`);
+            if (matchedButNotApproved) {
+                throw { status: 403, message: 'You must belong to an approved community to login.' };
+            }
             throw { status: 401, message: 'Invalid credentials.' };
         }
 
-        // Compare passwords
-        const isMatch = await bcrypt.compare(password, userWithPassword.password);
-        if (!isMatch) {
-            throw { status: 401, message: 'Invalid credentials.' };
-        }
-
-        // Check community membership (unless superadmin)
-        const communityId = user.community || user.communityId;
-        if (user.role !== 'superadmin' && (!communityId || user.communityStatus !== 'approved')) {
-            throw { status: 403, message: 'You must belong to an approved community to login.' };
-        }
+        const user = authenticatedUser;
+        const communityId = finalCommunityId;
 
         // Generate token
         const payload = {

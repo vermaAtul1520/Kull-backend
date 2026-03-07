@@ -90,7 +90,8 @@ exports.updateUser = async (req, res) => {
     // If admin is updating password, hash it before saving
     if (updates.password) {
       const bcrypt = require('bcryptjs');
-      const plainPassword = updates.password;
+      const plainPassword = updates.password.toString().trim();
+      console.log(`[DEBUG] Hashing new password for user update (length: ${plainPassword.length})`);
       updates.password = await bcrypt.hash(plainPassword, 10);
       updates.plainTextPassword = plainPassword;
     }

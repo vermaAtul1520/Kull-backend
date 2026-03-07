@@ -30,9 +30,21 @@ class UserRepository extends BaseRepository {
      * @returns {Promise<Object|null>}
      */
     async findByEmail(email, options = {}) {
+        const results = await this.findAllByEmail(email, options);
+        return results.length > 0 ? results[0] : null;
+    }
+
+    /**
+     * Find all users by email
+     * @param {string} email 
+     * @param {Object} options 
+     * @returns {Promise<Array<Object>>}
+     */
+    async findAllByEmail(email, options = {}) {
         if (this.isMongoDB()) {
             const Model = this.getDb().getModel(this.entityName);
-            let query = Model.findOne({ email: email.toLowerCase() });
+            const normalizedEmail = email.trim().toLowerCase();
+            let query = Model.find({ email: normalizedEmail });
 
             if (options.includePassword) {
                 query = query.select('+password +plainTextPassword');
@@ -41,16 +53,16 @@ class UserRepository extends BaseRepository {
                 query = query.populate(options.populate);
             }
 
-            const result = await query.lean();
-            return this._transformResult(result);
+            const results = await query.lean();
+            return this._transformResult(results);
         } else {
+            const normalizedEmail = email.trim().toLowerCase();
             const result = await this.getDb().query(this.tableName, {
                 indexName: 'email-index',
                 keyCondition: 'email = :email',
-                keyValues: { ':email': email.toLowerCase() },
-                limit: 1
+                keyValues: { ':email': normalizedEmail }
             });
-            return result.items[0] || null;
+            return result.items.map(item => this._transformResult(item));
         }
     }
 
@@ -61,9 +73,21 @@ class UserRepository extends BaseRepository {
      * @returns {Promise<Object|null>}
      */
     async findByPhone(phone, options = {}) {
+        const results = await this.findAllByPhone(phone, options);
+        return results.length > 0 ? results[0] : null;
+    }
+
+    /**
+     * Find all users by phone
+     * @param {string} phone 
+     * @param {Object} options 
+     * @returns {Promise<Array<Object>>}
+     */
+    async findAllByPhone(phone, options = {}) {
         if (this.isMongoDB()) {
             const Model = this.getDb().getModel(this.entityName);
-            let query = Model.findOne({ phone });
+            const normalizedPhone = phone.trim();
+            let query = Model.find({ phone: normalizedPhone });
 
             if (options.includePassword) {
                 query = query.select('+password +plainTextPassword');
@@ -72,16 +96,16 @@ class UserRepository extends BaseRepository {
                 query = query.populate(options.populate);
             }
 
-            const result = await query.lean();
-            return this._transformResult(result);
+            const results = await query.lean();
+            return this._transformResult(results);
         } else {
+            const normalizedPhone = phone.trim();
             const result = await this.getDb().query(this.tableName, {
                 indexName: 'phone-index',
                 keyCondition: 'phone = :phone',
-                keyValues: { ':phone': phone },
-                limit: 1
+                keyValues: { ':phone': normalizedPhone }
             });
-            return result.items[0] || null;
+            return result.items.map(item => this._transformResult(item));
         }
     }
 

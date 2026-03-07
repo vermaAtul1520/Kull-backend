@@ -33,7 +33,9 @@ describe('AuthService', () => {
 
         mockUserRepo = {
             findByEmail: jest.fn(),
+            findAllByEmail: jest.fn(),
             findByPhone: jest.fn(),
+            findAllByPhone: jest.fn(),
             findByIdWithPassword: jest.fn(),
             create: jest.fn(),
             updateById: jest.fn(),
@@ -128,7 +130,7 @@ describe('AuthService', () => {
             };
             const mockUserWithPassword = { ...mockUser, password: 'hashedPassword' };
 
-            mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+            mockUserRepo.findAllByEmail.mockResolvedValue([mockUser]);
             mockUserRepo.findByIdWithPassword.mockResolvedValue(mockUserWithPassword);
             bcrypt.compare.mockResolvedValue(true);
             jwt.sign.mockReturnValue('jwt-token-123');
@@ -140,8 +142,8 @@ describe('AuthService', () => {
         });
 
         it('should throw error for invalid credentials', async () => {
-            mockUserRepo.findByEmail.mockResolvedValue(null);
-            mockUserRepo.findByPhone.mockResolvedValue(null);
+            mockUserRepo.findAllByEmail.mockResolvedValue([]);
+            mockUserRepo.findAllByPhone.mockResolvedValue([]);
 
             await expect(authService.login('invalid@example.com', 'password'))
                 .rejects.toEqual({ status: 401, message: 'Invalid user.' });
@@ -151,7 +153,7 @@ describe('AuthService', () => {
             const mockUser = { _id: 'user123', email: 'john@example.com' };
             const mockUserWithPassword = { ...mockUser, password: 'hashedPassword' };
 
-            mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+            mockUserRepo.findAllByEmail.mockResolvedValue([mockUser]);
             mockUserRepo.findByIdWithPassword.mockResolvedValue(mockUserWithPassword);
             bcrypt.compare.mockResolvedValue(false);
 
@@ -169,7 +171,7 @@ describe('AuthService', () => {
             };
             const mockUserWithPassword = { ...mockUser, password: 'hashedPassword' };
 
-            mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+            mockUserRepo.findAllByEmail.mockResolvedValue([mockUser]);
             mockUserRepo.findByIdWithPassword.mockResolvedValue(mockUserWithPassword);
             bcrypt.compare.mockResolvedValue(true);
 
