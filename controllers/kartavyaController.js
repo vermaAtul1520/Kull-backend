@@ -98,6 +98,8 @@ class KartavyaController {
 
         return {
           ...k,
+          attachment: k.attachment || "",
+          thumbnailUrl: k.thumbnailUrl || "",
           createdBy: userMap[createdByStr] ? {
             _id: userMap[createdByStr].id || userMap[createdByStr]._id,
             firstName: userMap[createdByStr].firstName,
@@ -128,6 +130,10 @@ class KartavyaController {
     try {
       const kartavya = await kartavyaService.getKartavyaById(req.params.id);
       if (!kartavya) return res.status(404).json({ success: false, message: "Not found" });
+
+      kartavya.attachment = kartavya.attachment || "";
+      kartavya.thumbnailUrl = kartavya.thumbnailUrl || "";
+
       res.status(200).json({ success: true, data: kartavya });
     } catch (err) {
       next(err);
@@ -155,7 +161,7 @@ class KartavyaController {
       }
 
       // Sanitize updates
-      const allowedUpdates = ["title", "description", "category", "filetype", "language", "url", "thumbnailUrl"];
+      const allowedUpdates = ["title", "description", "category", "filetype", "language", "attachment", "thumbnailUrl"];
       const updates = {};
       allowedUpdates.forEach(field => {
         if (req.body[field] !== undefined) updates[field] = req.body[field];
